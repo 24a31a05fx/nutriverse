@@ -1,0 +1,32 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: nutriverse
+      POSTGRES_USER: nutriverse
+      POSTGRES_PASSWORD: nutriverse
+    ports:
+      - "5432:5432"
+    volumes:
+      - nutriverse-db:/var/lib/postgresql/data
+  web:
+    build: .
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000/api
+    ports:
+      - "3000:3000"
+    depends_on:
+      - db
+  api:
+    build:
+      context: ./backend
+    environment:
+      DATABASE_URL: postgresql+psycopg://nutriverse:nutriverse@db:5432/nutriverse
+      JWT_SECRET: replace-with-a-long-random-secret
+      ALLOWED_ORIGINS: http://localhost:3000
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+volumes:
+  nutriverse-db:
