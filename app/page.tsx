@@ -17,7 +17,7 @@ import { CartDrawer } from "@/components/CartDrawer";
 import { AssistantDrawer } from "@/components/AssistantDrawer";
 import { AuthModal } from "@/components/AuthModal";
 
-import { api, User, NutritionProfile, Food, Recipe, CartResponse } from "@/lib/api";
+import { api, User, NutritionProfile, Food, Recipe, CartResponse, logoutUser } from "@/lib/api";
 import { Bot, Sparkles, Heart, Activity } from "lucide-react";
 
 export default function Home() {
@@ -70,39 +70,20 @@ export default function Home() {
     }
   }, []);
 
-  // Initialize Session: Auto-authenticate default customer if no token present
+  // Initialize Session: Check cookie session without forced auto-login
   useEffect(() => {
     const initSession = async () => {
-      const token = typeof window !== "undefined" ? localStorage.getItem("nutriverse_token") : null;
-      if (token) {
-        try {
-          const user = await api<User>("/auth/me");
+      try {
+        const user = await api<User>("/auth/me");
+        if (user) {
           setCurrentUser(user);
           await Promise.all([refreshProfile(), refreshCart()]);
-          return;
-        } catch {
-          localStorage.removeItem("nutriverse_token");
         }
-      }
-
-      // Default demo login as Alex Mercer (Customer) for seamless exploration
-      try {
-        const loginRes = await api<any>("/auth/login", {
-          method: "POST",
-          body: JSON.stringify({ email: "alex@nutriverse.local", password: "Customer123!" }),
-        });
-        if (loginRes.access_token) {
-          localStorage.setItem("nutriverse_token", loginRes.access_token);
-          setCurrentUser({
-            id: loginRes.user_id,
-            name: loginRes.name,
-            email: loginRes.email,
-            role: loginRes.role,
-          });
-          await Promise.all([refreshProfile(), refreshCart()]);
-        }
-      } catch (err) {
-        console.warn("Auto-demo login notice:", err);
+      } catch {
+        // Guest mode: catalog, packs, recipes, combinations, scanner are public
+        setCurrentUser(null);
+        setProfile(null);
+        setCart(null);
       }
     };
 
@@ -110,10 +91,8 @@ export default function Home() {
     initSession();
   }, [refreshCatalog, refreshCart, refreshProfile]);
 
-  const handleLogout = () => {
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("nutriverse_token");
-    }
+  const handleLogout = async () => {
+    await logoutUser();
     setCurrentUser(null);
     setProfile(null);
     setCart(null);
@@ -121,6 +100,10 @@ export default function Home() {
   };
 
   const handleAddToCart = async (food: Food, quantity = 1) => {
+    if (!currentUser) {
+      setAuthModalOpen(true);
+      return;
+    }
     try {
       await api("/cart/items", {
         method: "POST",
@@ -138,6 +121,10 @@ export default function Home() {
   };
 
   const handleAddPackToCart = async (tier: string, packName: string, customization: any) => {
+    if (!currentUser) {
+      setAuthModalOpen(true);
+      return;
+    }
     try {
       await api("/cart/items", {
         method: "POST",
@@ -157,6 +144,10 @@ export default function Home() {
   };
 
   const handleAddMultipleToCart = async (items: Array<{ food: Food; quantity: number }>) => {
+    if (!currentUser) {
+      setAuthModalOpen(true);
+      return;
+    }
     try {
       for (const item of items) {
         await api("/cart/items", {
