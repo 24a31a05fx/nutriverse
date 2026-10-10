@@ -1,6 +1,12 @@
 /** @type {import('next').NextConfig} */
+const isStaticExport = process.env.NEXT_EXPORT === "true";
+
 const nextConfig = {
-  output: "standalone",
-  images: { unoptimized: true }
+  output: isStaticExport ? "export" : "standalone",
+  images: {
+    unoptimized: true,
+  },
+  trailingSlash: isStaticExport,
 };
+
 export default nextConfig;
