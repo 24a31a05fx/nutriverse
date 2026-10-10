@@ -75,7 +75,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateTab, o
               </div>
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Clinical Nutritionist Review</span>
+                <span>Nutritionist Guidance Review</span>
               </div>
             </div>
           </div>
@@ -241,7 +241,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateTab, o
             </span>
             <h2 className="text-3xl sm:text-4xl font-extrabold">Calin Packs: Curated Whole-Food Bundles</h2>
             <p className="text-xs sm:text-sm text-gray-300 leading-relaxed">
-              Say goodbye to random grocery guessing. Calin Packs deliver complete synergistic food packages calibrated for baseline macros, micronutrients, and longevity.
+              Say goodbye to random grocery guessing. Calin Packs deliver complete synergistic food packages calibrated for baseline macros, micronutrients, and general nutritional wellness.
             </p>
           </div>
 

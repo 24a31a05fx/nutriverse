@@ -883,7 +883,7 @@ def seed_initial_data() -> None:
                     barcode="8901234567896",
                     category="Nuts & Seeds",
                     nutrition_tags=json.dumps(["fat_sources", "protein_rich", "vitamin_sources", "mineral_sources"]),
-                    description="Heart-healthy monounsaturated fats, Vitamin E, and magnesium for sustained cellular energy.",
+                    description="Heart-healthy monounsaturated fats, Vitamin E, and magnesium for sustained energy.",
                     price_inr=499,
                     unit="500g pouch",
                     serving_size="30g",
@@ -1129,7 +1129,7 @@ def seed_initial_data() -> None:
                 ),
                 Recipe(
                     name="Warm Quinoa & Steamed Broccoli Power Lunch",
-                    description="Complete protein profile combined with cellular sulforaphane from lightly steamed broccoli florets.",
+                    description="Complete protein profile combined with natural sulforaphane from lightly steamed broccoli florets.",
                     instructions="1. Rinse white quinoa and simmer in 2x water with a pinch of sea salt for 14 minutes until fluffy.\n2. Steam broccoli florets for exactly 3 to 4 minutes to maximize sulforaphane bioavailability.\n3. Toss together with roasted sweet potato cubes.\n4. Drizzle with cold-pressed oil and roasted almond flakes.",
                     prep_method="Simmer & Steam",
                     prep_time_mins=22,
@@ -1498,7 +1498,7 @@ def get_categories(session: Session = Depends(db)) -> dict[str, Any]:
     conventional = list(session.scalars(select(Food.category).distinct()))
     nutrition_categories = [
         {"id": "protein_rich", "label": "Protein-Rich Foods", "description": "High-density plant & clean dairy protein to support tissue repair and satiety."},
-        {"id": "carb_rich", "label": "Complex Carbohydrates", "description": "Slow-release low-GI complex carbs for steady cellular stamina."},
+        {"id": "carb_rich", "label": "Complex Carbohydrates", "description": "Slow-release low-GI complex carbs for steady energy stamina."},
         {"id": "fat_sources", "label": "Healthy Fat Sources", "description": "Monounsaturated and Omega-3 rich whole foods for hormone & brain vitality."},
         {"id": "vitamin_sources", "label": "Vitamin Powerhouses", "description": "Bioavailable vitamins A, C, Folate, and K from vibrant raw produce."},
         {"id": "mineral_sources", "label": "Essential Minerals", "description": "Magnesium, potassium, zinc, and trace minerals for enzyme function."},

@@ -223,7 +223,7 @@ export default function Home() {
             currentUser={currentUser}
             onOpenAuth={() => setAuthModalOpen(true)}
             onRequestNutritionistReviewSuccess={() => {
-              alert("Nutritionist review request submitted! You can track clinical notes in your dashboard.");
+              alert("Nutritionist review request submitted! You can track nutritionist guidance in your dashboard.");
               setActiveTab("dashboard");
             }}
           />
@@ -357,7 +357,7 @@ export default function Home() {
                 Empowering individuals to understand their nutritional requirements, choose foods by biological contribution, and receive synergistic Calin Packs.
               </p>
               <div className="text-[11px] text-emerald-300 font-mono">
-                Mifflin–St Jeor Engine • EAN-13 Scanner • Clinical Triage
+                Mifflin–St Jeor Engine • EAN-13 Scanner • Nutritionist Guidance
               </div>
             </div>
 
@@ -423,7 +423,7 @@ export default function Home() {
                 </li>
                 <li>
                   <button onClick={() => { setActiveTab("admin"); window.scrollTo({ top: 0, behavior: "smooth" }); }} className="hover:text-white transition">
-                    Admin & Clinical
+                    Admin & Operations
                   </button>
                 </li>
                 <li>
@@ -439,7 +439,7 @@ export default function Home() {
           <div className="pt-8 border-t border-emerald-900/60 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-emerald-300/70">
             <p>© {new Date().getFullYear()} Nutriverse Ventures. All rights reserved.</p>
             <p className="text-[11px] max-w-lg text-center sm:text-right">
-              Disclaimer: Nutritional metrics are based on scientific equations (Mifflin–St Jeor) and verified whole food composition tables. Not medical diagnoses or clinical prescriptions.
+              Disclaimer: Nutritional metrics are based on scientific equations (Mifflin–St Jeor) and verified whole food composition tables. Not medical diagnoses or medical prescriptions.
             </p>
           </div>
         </div>

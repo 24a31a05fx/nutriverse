@@ -32,7 +32,7 @@ export default function NutritionistPageClient() {
       const data = await api<NutritionistRequestModel[]>("/nutritionist/requests");
       setQueue(data);
     } catch (err: any) {
-      setError(err?.message || "Failed to load clinical queue");
+      setError(err?.message || "Failed to load review queue");
     } finally {
       setLoading(false);
     }
@@ -54,7 +54,7 @@ export default function NutritionistPageClient() {
         </div>
         <h1 className="text-xl font-bold text-gray-900">Nutritionist Sign In Required</h1>
         <p className="text-xs text-gray-500">
-          Sign in with your Clinical Nutritionist credentials to access customer review queues.
+          Sign in with your Nutritionist credentials to access customer review queues.
         </p>
         <button
           type="button"
@@ -74,9 +74,9 @@ export default function NutritionistPageClient() {
         <div className="w-16 h-16 mx-auto rounded-3xl bg-amber-50 text-amber-700 flex items-center justify-center">
           <AlertCircle className="w-8 h-8" />
         </div>
-        <h1 className="text-xl font-bold text-gray-900">Clinical Role Required</h1>
+        <h1 className="text-xl font-bold text-gray-900">Nutritionist Role Required</h1>
         <p className="text-xs text-gray-500">
-          This queue is restricted to verified Clinical Nutritionists (e.g. Dr. Priya Nair).
+          This queue is restricted to verified Nutritionists (e.g. Dr. Priya Nair).
         </p>
         <Link
           href="/"
@@ -114,7 +114,7 @@ export default function NutritionistPageClient() {
             Professional Practice Portal
           </span>
           <h1 className="text-2xl font-black text-gray-900 mt-2 flex items-center gap-2.5">
-            <Stethoscope className="w-6 h-6 text-teal-700" /> Clinical Review Queue
+            <Stethoscope className="w-6 h-6 text-teal-700" /> Nutritionist Review Queue
           </h1>
           <p className="text-xs text-gray-500 mt-1">
             Logged in as {currentUser.name} ({currentUser.role}). Review customer dietary notes and deliver evidence-based guidance.
@@ -131,7 +131,7 @@ export default function NutritionistPageClient() {
       </div>
 
       {loading ? (
-        <div className="text-center py-12 text-xs text-gray-400">Loading clinical queue...</div>
+        <div className="text-center py-12 text-xs text-gray-400">Loading review queue...</div>
       ) : queue.length === 0 ? (
         <div className="bg-white rounded-3xl border border-gray-100 p-12 text-center shadow-sm space-y-3">
           <CheckCircle className="w-10 h-10 text-teal-600 mx-auto" />
@@ -174,7 +174,7 @@ export default function NutritionistPageClient() {
 
               {/* Customer Request Notes */}
               <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 text-xs space-y-1">
-                <span className="font-bold text-gray-700 block">Customer Health & Dietary Notes:</span>
+                <span className="font-bold text-gray-700 block">Customer Dietary Notes:</span>
                 <p className="text-gray-600 leading-relaxed">{req.customer_notes}</p>
               </div>
 
@@ -182,7 +182,7 @@ export default function NutritionistPageClient() {
               {req.status === "reviewed" ? (
                 <div className="p-4 bg-teal-50/70 border border-teal-200/80 rounded-2xl text-xs space-y-1">
                   <span className="font-bold text-teal-900 flex items-center gap-1.5">
-                    <CheckCircle className="w-3.5 h-3.5 text-teal-700" /> Clinical Recommendations by {req.nutritionist_name}:
+                    <CheckCircle className="w-3.5 h-3.5 text-teal-700" /> Nutritionist Guidance by {req.nutritionist_name}:
                   </span>
                   <p className="text-teal-800 leading-relaxed">{req.guidance_notes}</p>
                 </div>
@@ -190,7 +190,7 @@ export default function NutritionistPageClient() {
                 <div className="space-y-3 pt-2">
                   <textarea
                     rows={3}
-                    placeholder="Provide evidence-based clinical guidance on food swaps, micronutrient ratios, or preparation methods..."
+                    placeholder="Provide evidence-based nutritional guidance on food swaps, micronutrient ratios, or preparation methods..."
                     value={guidanceText}
                     onChange={(e) => setGuidanceText(e.target.value)}
                     className="w-full p-3.5 text-xs rounded-2xl border border-teal-200 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
@@ -225,7 +225,7 @@ export default function NutritionistPageClient() {
                   }}
                   className="px-4 py-2 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-900 text-xs font-bold border border-teal-200 transition"
                 >
-                  Write Clinical Guidance
+                  Write Nutritionist Guidance
                 </button>
               )}
             </div>

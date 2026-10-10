@@ -15,7 +15,7 @@ export default function PacksClient() {
       onAddPackToCart={handleAddPackToCart}
       onOpenAuth={() => setAuthModalOpen(true)}
       onRequestNutritionistReviewSuccess={() => {
-        alert("Nutritionist review request submitted! You can track clinical notes in your dashboard.");
+        alert("Nutritionist review request submitted! You can track nutritionist guidance in your dashboard.");
         router.push("/account");
       }}
     />
