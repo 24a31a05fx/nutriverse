@@ -23,6 +23,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
   useEffect(() => {
     if (isOpen) {
       getAuthConfig().then(setAuthConfig).catch(() => {});
+      setMode("login");
+      setError(null);
+      setName("");
+      setEmail("");
+      setPassword("");
     }
   }, [isOpen]);
 

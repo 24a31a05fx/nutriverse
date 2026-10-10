@@ -460,15 +460,19 @@ img {
   background: var(--paper);
   z-index: 160;
   transform: translateX(100%);
-  transition: transform var(--transition-normal);
+  transition: transform var(--transition-normal), visibility var(--transition-normal);
   padding: 2rem 1.5rem;
   display: flex;
   flex-direction: column;
   box-shadow: var(--shadow-xl);
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .mobile-drawer.open {
   transform: translateX(0);
+  visibility: visible;
+  pointer-events: auto;
 }
 
 .mobile-drawer-header {
