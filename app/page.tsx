@@ -1,108 +1,447 @@
 "use client";
 
-import { useState } from "react";
-import Navbar from "../components/Navbar";
-import Hero from "../components/Hero";
-import Problem from "../components/Problem";
-import Solution from "../components/Solution";
-import HowItWorks from "../components/HowItWorks";
-import CalinPacks from "../components/CalinPacks";
-import Benefits from "../components/Benefits";
-import AppPreview from "../components/AppPreview";
-import Mission from "../components/Mission";
-import CtaSection from "../components/CtaSection";
-import ContactAndFooter from "../components/ContactAndFooter";
-import InteractiveCalculatorModal from "../components/InteractiveCalculatorModal";
-import { Calculator } from "lucide-react";
+import React, { useState, useEffect, useCallback } from "react";
+import AppHeader, { ActiveTab } from "@/components/AppHeader";
+import { StorefrontView } from "@/components/StorefrontView";
+import FoodExplorerView from "@/components/FoodExplorerView";
+import CalinPacksView from "@/components/CalinPacksView";
+import RecipesView from "@/components/RecipesView";
+import CombinationsView from "@/components/CombinationsView";
+import { ScannerView } from "@/components/ScannerView";
+import { CustomerDashboardView } from "@/components/CustomerDashboardView";
+import { AdminPortalView } from "@/components/AdminPortalView";
+
+import FoodDetailModal from "@/components/FoodDetailModal";
+import { OnboardingModal } from "@/components/OnboardingModal";
+import { CartDrawer } from "@/components/CartDrawer";
+import { AssistantDrawer } from "@/components/AssistantDrawer";
+import { AuthModal } from "@/components/AuthModal";
+
+import { api, User, NutritionProfile, Food, Recipe, CartResponse } from "@/lib/api";
+import { Bot, Sparkles, Heart, Activity } from "lucide-react";
 
 export default function Home() {
-  const [calcModalOpen, setCalcModalOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<ActiveTab>("storefront");
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<NutritionProfile | null>(null);
+  const [cart, setCart] = useState<CartResponse | null>(null);
+  const [allFoods, setAllFoods] = useState<Food[]>([]);
+  const [allRecipes, setAllRecipes] = useState<Recipe[]>([]);
 
-  const scrollTo = (id: string) => {
-    const el = document.getElementById(id);
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth" });
+  // Modals & Drawers
+  const [selectedFood, setSelectedFood] = useState<Food | null>(null);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [onboardingOpen, setOnboardingOpen] = useState(false);
+  const [cartOpen, setCartOpen] = useState(false);
+  const [assistantOpen, setAssistantOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Load Catalog Data
+  const refreshCatalog = useCallback(async () => {
+    try {
+      const [foodsData, recipesData] = await Promise.all([
+        api<Food[]>("/foods"),
+        api<Recipe[]>("/recipes"),
+      ]);
+      setAllFoods(foodsData);
+      setAllRecipes(recipesData);
+    } catch (err) {
+      console.error("Error loading foods catalog:", err);
+    }
+  }, []);
+
+  // Load Cart Data
+  const refreshCart = useCallback(async () => {
+    try {
+      const cartData = await api<CartResponse>("/cart");
+      setCart(cartData);
+    } catch {
+      setCart(null);
+    }
+  }, []);
+
+  // Load User Profile
+  const refreshProfile = useCallback(async () => {
+    try {
+      const p = await api<NutritionProfile>("/profile");
+      setProfile(p);
+    } catch {
+      setProfile(null);
+    }
+  }, []);
+
+  // Initialize Session: Auto-authenticate default customer if no token present
+  useEffect(() => {
+    const initSession = async () => {
+      const token = typeof window !== "undefined" ? localStorage.getItem("nutriverse_token") : null;
+      if (token) {
+        try {
+          const user = await api<User>("/auth/me");
+          setCurrentUser(user);
+          await Promise.all([refreshProfile(), refreshCart()]);
+          return;
+        } catch {
+          localStorage.removeItem("nutriverse_token");
+        }
+      }
+
+      // Default demo login as Alex Mercer (Customer) for seamless exploration
+      try {
+        const loginRes = await api<any>("/auth/login", {
+          method: "POST",
+          body: JSON.stringify({ email: "alex@nutriverse.local", password: "Customer123!" }),
+        });
+        if (loginRes.access_token) {
+          localStorage.setItem("nutriverse_token", loginRes.access_token);
+          setCurrentUser({
+            id: loginRes.user_id,
+            name: loginRes.name,
+            email: loginRes.email,
+            role: loginRes.role,
+          });
+          await Promise.all([refreshProfile(), refreshCart()]);
+        }
+      } catch (err) {
+        console.warn("Auto-demo login notice:", err);
+      }
+    };
+
+    refreshCatalog();
+    initSession();
+  }, [refreshCatalog, refreshCart, refreshProfile]);
+
+  const handleLogout = () => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("nutriverse_token");
+    }
+    setCurrentUser(null);
+    setProfile(null);
+    setCart(null);
+    setActiveTab("storefront");
+  };
+
+  const handleAddToCart = async (food: Food, quantity = 1) => {
+    try {
+      await api("/cart/items", {
+        method: "POST",
+        body: JSON.stringify({
+          item_type: "food",
+          food_id: food.id,
+          quantity,
+        }),
+      });
+      await refreshCart();
+      setCartOpen(true);
+    } catch (err: any) {
+      alert(err?.message || "Failed to add food to cart");
     }
   };
 
+  const handleAddPackToCart = async (tier: string, packName: string, customization: any) => {
+    try {
+      await api("/cart/items", {
+        method: "POST",
+        body: JSON.stringify({
+          item_type: "pack",
+          pack_tier: tier,
+          pack_name: packName,
+          customization,
+          quantity: 1,
+        }),
+      });
+      await refreshCart();
+      setCartOpen(true);
+    } catch (err: any) {
+      alert(err?.message || "Failed to add pack to cart");
+    }
+  };
+
+  const handleAddMultipleToCart = async (items: Array<{ food: Food; quantity: number }>) => {
+    try {
+      for (const item of items) {
+        await api("/cart/items", {
+          method: "POST",
+          body: JSON.stringify({
+            item_type: "food",
+            food_id: item.food.id,
+            quantity: item.quantity,
+          }),
+        });
+      }
+      await refreshCart();
+      setCartOpen(true);
+    } catch (err: any) {
+      alert(err?.message || "Failed to add recipe ingredients to bag");
+    }
+  };
+
+  const cartItemsCount = cart ? cart.items.reduce((acc, it) => acc + it.quantity, 0) : 0;
+
   return (
-    <div style={{ minHeight: "100vh", position: "relative" }}>
-      {/* 1. Navigation Bar */}
-      <Navbar onExploreClick={() => scrollTo("calin-packs")} />
+    <div className="min-h-screen flex flex-col bg-[#faf7f0] text-[#111a14] selection:bg-emerald-200">
+      {/* 1. Master Application Header */}
+      <AppHeader
+        activeTab={activeTab}
+        onTabChange={(tab) => {
+          setActiveTab(tab);
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }}
+        currentUser={currentUser}
+        cartCount={cartItemsCount}
+        onOpenCart={() => setCartOpen(true)}
+        onOpenAuth={() => setAuthModalOpen(true)}
+        onOpenOnboarding={() => setOnboardingOpen(true)}
+        onOpenAssistant={() => setAssistantOpen(true)}
+        onLogout={handleLogout}
+        mobileOpen={mobileMenuOpen}
+        setMobileOpen={setMobileMenuOpen}
+      />
 
-      <main id="main-content">
-        {/* 2. Hero Section */}
-        <Hero
-          onExplorePacks={() => scrollTo("calin-packs")}
-          onHowItWorks={() => scrollTo("how-it-works")}
-        />
+      {/* 2. Main View Container (Based on Active Tab) */}
+      <main className="flex-1">
+        {activeTab === "storefront" && (
+          <StorefrontView
+            onNavigateTab={(tab) => {
+              setActiveTab(tab as ActiveTab);
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+            onOpenOnboarding={() => setOnboardingOpen(true)}
+          />
+        )}
 
-        {/* 3. The Problem */}
-        <Problem />
+        {activeTab === "explorer" && (
+          <FoodExplorerView
+            onAddToCart={handleAddToCart}
+          />
+        )}
 
-        {/* 4. Our Solution */}
-        <Solution />
+        {activeTab === "packs" && (
+          <CalinPacksView
+            onAddPackToCart={handleAddPackToCart}
+            currentUser={currentUser}
+            onOpenAuth={() => setAuthModalOpen(true)}
+            onRequestNutritionistReviewSuccess={() => {
+              alert("Nutritionist review request submitted! You can track clinical notes in your dashboard.");
+              setActiveTab("dashboard");
+            }}
+          />
+        )}
 
-        {/* 5. How It Works */}
-        <HowItWorks />
+        {activeTab === "recipes" && (
+          <RecipesView
+            allFoods={allFoods}
+            onAddMultipleToCart={handleAddMultipleToCart}
+          />
+        )}
 
-        {/* 6. Calin Packs — Our Unique Offering */}
-        <CalinPacks onInquire={() => scrollTo("contact")} />
+        {activeTab === "combinations" && (
+          <CombinationsView
+            allFoods={allFoods}
+            onAddMultipleToCart={handleAddMultipleToCart}
+          />
+        )}
 
-        {/* 7. Key Benefits */}
-        <Benefits />
+        {activeTab === "scanner" && (
+          <ScannerView
+            onSelectFood={(food) => setSelectedFood(food)}
+            onAddToCart={handleAddToCart}
+          />
+        )}
 
-        {/* 8. App Experience Preview */}
-        <AppPreview />
+        {activeTab === "dashboard" && (
+          <CustomerDashboardView
+            user={currentUser}
+            profile={profile}
+            onOpenOnboarding={() => setOnboardingOpen(true)}
+            onNavigateTab={(tab) => {
+              setActiveTab(tab as ActiveTab);
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+          />
+        )}
 
-        {/* 9. Our Mission */}
-        <Mission onJoinMission={() => scrollTo("contact")} />
-
-        {/* 10. Call to Action */}
-        <CtaSection
-          onContactClick={() => scrollTo("contact")}
-          onExploreClick={() => scrollTo("calin-packs")}
-        />
-
-        {/* 11. Contact and Footer */}
-        <ContactAndFooter />
+        {activeTab === "admin" && (
+          <AdminPortalView
+            user={currentUser}
+            onRefreshGlobal={() => {
+              refreshCatalog();
+              refreshCart();
+            }}
+          />
+        )}
       </main>
 
-      {/* Floating Interactive Tool Trigger */}
-      <button
-        onClick={() => setCalcModalOpen(true)}
-        style={{
-          position: "fixed",
-          bottom: "24px",
-          left: "24px",
-          zIndex: 90,
-          background: "var(--forest-800)",
-          color: "#ffffff",
-          padding: "10px 18px",
-          borderRadius: "var(--radius-pill)",
-          boxShadow: "0 8px 24px rgba(17, 26, 20, 0.2)",
-          display: "flex",
-          alignItems: "center",
-          gap: "8px",
-          fontSize: "0.85rem",
-          fontWeight: 600,
-          border: "1px solid rgba(255, 255, 255, 0.2)",
-          transition: "transform 0.2s ease",
-        }}
-        onMouseEnter={(e) => (e.currentTarget.style.transform = "translateY(-2px)")}
-        onMouseLeave={(e) => (e.currentTarget.style.transform = "translateY(0)")}
-        aria-label="Calculate daily nutrition needs"
-      >
-        <Calculator size={16} />
-        <span>Try Nutrition Estimator</span>
-      </button>
+      {/* 3. Floating Assistant Trigger */}
+      <div className="fixed bottom-6 right-6 z-40">
+        <button
+          type="button"
+          onClick={() => setAssistantOpen(true)}
+          className="group flex items-center gap-2.5 px-4 py-3 bg-gradient-to-r from-emerald-800 to-teal-900 hover:from-emerald-700 hover:to-teal-800 text-white font-bold text-xs rounded-full shadow-xl hover:shadow-2xl transition transform hover:-translate-y-0.5 border border-emerald-600/40"
+        >
+          <div className="w-6 h-6 rounded-full bg-emerald-400 text-emerald-950 flex items-center justify-center font-bold text-xs shadow-inner">
+            <Bot className="w-3.5 h-3.5" />
+          </div>
+          <span>Ask Nourish AI</span>
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+        </button>
+      </div>
 
-      {/* Interactive Estimator Modal */}
-      <InteractiveCalculatorModal
-        isOpen={calcModalOpen}
-        onClose={() => setCalcModalOpen(false)}
-        onSelectPack={() => scrollTo("calin-packs")}
+      {/* 4. Global Modals & Drawers */}
+      <FoodDetailModal
+        food={selectedFood}
+        onClose={() => setSelectedFood(null)}
+        onAddToCart={handleAddToCart}
+        recipes={allRecipes}
+        onOpenRecipe={() => {
+          setSelectedFood(null);
+          setActiveTab("recipes");
+        }}
       />
+
+      <OnboardingModal
+        isOpen={onboardingOpen}
+        onClose={() => setOnboardingOpen(false)}
+        initialProfile={profile}
+        onProfileSaved={(newProfile) => {
+          setProfile(newProfile);
+          setActiveTab("dashboard");
+        }}
+      />
+
+      <CartDrawer
+        isOpen={cartOpen}
+        onClose={() => setCartOpen(false)}
+        cart={cart}
+        onRefreshCart={refreshCart}
+        onOrderPlaced={() => {
+          refreshCart();
+          setActiveTab("dashboard");
+        }}
+      />
+
+      <AssistantDrawer
+        isOpen={assistantOpen}
+        onClose={() => setAssistantOpen(false)}
+        user={currentUser}
+      />
+
+      <AuthModal
+        isOpen={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+        onAuthSuccess={(user) => {
+          setCurrentUser(user);
+          refreshProfile();
+          refreshCart();
+          if (user.role === "admin" || user.role === "nutritionist") {
+            setActiveTab("admin");
+          } else {
+            setActiveTab("dashboard");
+          }
+        }}
+      />
+
+      {/* 5. Comprehensive Application Footer */}
+      <footer className="bg-emerald-950 text-white/90 pt-16 pb-12 border-t border-emerald-900/50">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 space-y-12">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-8">
+            <div className="col-span-2 space-y-4">
+              <div className="flex items-center gap-2">
+                <span className="text-2xl font-black tracking-tight text-white">Nutriverse</span>
+                <span className="text-[10px] font-bold text-emerald-400 bg-emerald-900/80 px-2 py-0.5 rounded-full uppercase">
+                  Nutrition-First
+                </span>
+              </div>
+              <p className="text-xs text-emerald-200/80 leading-relaxed max-w-sm">
+                Empowering individuals to understand their nutritional requirements, choose foods by biological contribution, and receive synergistic Calin Packs.
+              </p>
+              <div className="text-[11px] text-emerald-300 font-mono">
+                Mifflin–St Jeor Engine • EAN-13 Scanner • Clinical Triage
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-300">Explore</h4>
+              <ul className="space-y-2 text-xs text-gray-300">
+                <li>
+                  <button onClick={() => { setActiveTab("explorer"); window.scrollTo({ top: 0, behavior: "smooth" }); }} className="hover:text-white transition">
+                    Food Explorer
+                  </button>
+                </li>
+                <li>
+                  <button onClick={() => { setActiveTab("packs"); window.scrollTo({ top: 0, behavior: "smooth" }); }} className="hover:text-white transition">
+                    Calin Packs
+                  </button>
+                </li>
+                <li>
+                  <button onClick={() => { setActiveTab("recipes"); window.scrollTo({ top: 0, behavior: "smooth" }); }} className="hover:text-white transition">
+                    Bio-Recipes
+                  </button>
+                </li>
+                <li>
+                  <button onClick={() => { setActiveTab("combinations"); window.scrollTo({ top: 0, behavior: "smooth" }); }} className="hover:text-white transition">
+                    Combinations
+                  </button>
+                </li>
+              </ul>
+            </div>
+
+            <div className="space-y-3">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-300">Intelligence</h4>
+              <ul className="space-y-2 text-xs text-gray-300">
+                <li>
+                  <button onClick={() => { setActiveTab("scanner"); window.scrollTo({ top: 0, behavior: "smooth" }); }} className="hover:text-white transition">
+                    Barcode Scanner
+                  </button>
+                </li>
+                <li>
+                  <button onClick={() => setOnboardingOpen(true)} className="hover:text-white transition">
+                    BMR Calculator
+                  </button>
+                </li>
+                <li>
+                  <button onClick={() => setAssistantOpen(true)} className="hover:text-white transition">
+                    Nourish AI Chat
+                  </button>
+                </li>
+                <li>
+                  <button onClick={() => { setActiveTab("dashboard"); window.scrollTo({ top: 0, behavior: "smooth" }); }} className="hover:text-white transition">
+                    Member Dashboard
+                  </button>
+                </li>
+              </ul>
+            </div>
+
+            <div className="space-y-3">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-300">Console Roles</h4>
+              <ul className="space-y-2 text-xs text-gray-300">
+                <li>
+                  <button onClick={() => setAuthModalOpen(true)} className="hover:text-white transition">
+                    Switch User Role
+                  </button>
+                </li>
+                <li>
+                  <button onClick={() => { setActiveTab("admin"); window.scrollTo({ top: 0, behavior: "smooth" }); }} className="hover:text-white transition">
+                    Admin & Clinical
+                  </button>
+                </li>
+                <li>
+                  <span className="text-[11px] text-emerald-400/80">Alex (Customer)</span>
+                </li>
+                <li>
+                  <span className="text-[11px] text-teal-400/80">Dr. Priya (Nutritionist)</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="pt-8 border-t border-emerald-900/60 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-emerald-300/70">
+            <p>© {new Date().getFullYear()} Nutriverse Ventures. All rights reserved.</p>
+            <p className="text-[11px] max-w-lg text-center sm:text-right">
+              Disclaimer: Nutritional metrics are based on scientific equations (Mifflin–St Jeor) and verified whole food composition tables. Not medical diagnoses or clinical prescriptions.
+            </p>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
