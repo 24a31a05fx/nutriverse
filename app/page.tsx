@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import AppHeader, { ActiveTab } from "@/components/AppHeader";
 import { StorefrontView } from "@/components/StorefrontView";
 import FoodExplorerView from "@/components/FoodExplorerView";
@@ -21,6 +22,7 @@ import { api, User, NutritionProfile, Food, Recipe, CartResponse, logoutUser } f
 import { Bot, Sparkles, Heart, Activity } from "lucide-react";
 
 export default function Home() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<ActiveTab>("storefront");
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<NutritionProfile | null>(null);
@@ -193,8 +195,17 @@ export default function Home() {
         {activeTab === "storefront" && (
           <StorefrontView
             onNavigateTab={(tab) => {
-              setActiveTab(tab as ActiveTab);
-              window.scrollTo({ top: 0, behavior: "smooth" });
+              if (tab === "explorer") router.push("/explore");
+              else if (tab === "packs") router.push("/packs");
+              else if (tab === "recipes") router.push("/recipes");
+              else if (tab === "combinations") router.push("/combinations");
+              else if (tab === "scanner") router.push("/scanner");
+              else if (tab === "dashboard") router.push("/account");
+              else if (tab === "admin") router.push("/admin");
+              else {
+                setActiveTab(tab as ActiveTab);
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }
             }}
             onOpenOnboarding={() => setOnboardingOpen(true)}
           />
