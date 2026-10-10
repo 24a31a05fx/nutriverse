@@ -12,6 +12,68 @@ import {
   logoutUser,
 } from "@/lib/api";
 
+interface GuestCartItem {
+  id: string;
+  item_type: "food" | "pack";
+  food_id?: string;
+  pack_tier?: string;
+  pack_name?: string;
+  name: string;
+  category?: string;
+  unit?: string;
+  unit_price_inr: number;
+  quantity: number;
+  customization?: Record<string, any>;
+}
+
+function getStoredGuestCart(): GuestCartItem[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem("nutriverse_guest_cart");
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveStoredGuestCart(items: GuestCartItem[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem("nutriverse_guest_cart", JSON.stringify(items));
+  } catch {}
+}
+
+function clearStoredGuestCart(): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.removeItem("nutriverse_guest_cart");
+  } catch {}
+}
+
+function buildCartResponseFromGuestItems(items: GuestCartItem[]): CartResponse {
+  const subtotal = items.reduce((acc, it) => acc + it.unit_price_inr * it.quantity, 0);
+  const delivery_fee = subtotal > 800 || subtotal === 0 ? 0 : 49;
+  return {
+    items: items.map((it) => ({
+      id: it.id,
+      item_type: it.item_type,
+      food_id: it.food_id,
+      pack_tier: it.pack_tier,
+      name: it.name,
+      category: it.category,
+      unit: it.unit,
+      unit_price_inr: it.unit_price_inr,
+      quantity: it.quantity,
+      total_inr: it.unit_price_inr * it.quantity,
+      customization: it.customization,
+      stock_available: true,
+    })),
+    subtotal_inr: subtotal,
+    delivery_fee_inr: delivery_fee,
+    total_inr: subtotal + delivery_fee,
+  };
+}
+
 interface NutriverseContextType {
   currentUser: User | null;
   setCurrentUser: React.Dispatch<React.SetStateAction<User | null>>;
@@ -40,6 +102,8 @@ interface NutriverseContextType {
   handleAddToCart: (food: Food, quantity?: number) => Promise<void>;
   handleAddPackToCart: (tier: string, packName: string, customization: any) => Promise<void>;
   handleAddMultipleToCart: (items: Array<{ food: Food; quantity: number }>) => Promise<void>;
+  handleRemoveFromCart: (itemId: string) => Promise<void>;
+  onAuthSuccess: (user: User) => Promise<void>;
 }
 
 const NutriverseContext = createContext<NutriverseContextType | undefined>(undefined);
@@ -91,38 +155,96 @@ export const NutriverseProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   }, []);
 
+  const onAuthSuccess = useCallback(async (user: User) => {
+    setCurrentUser(user);
+    const guestItems = getStoredGuestCart();
+    if (guestItems.length > 0) {
+      try {
+        const payload = {
+          items: guestItems.map((it) => ({
+            item_type: it.item_type,
+            food_id: it.food_id,
+            pack_tier: it.pack_tier,
+            pack_name: it.pack_name,
+            customization: it.customization,
+            quantity: it.quantity,
+          })),
+        };
+        const merged = await api<CartResponse>("/cart/merge", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+        clearStoredGuestCart();
+        setCart(merged);
+      } catch (err) {
+        console.error("Failed to merge guest cart on auth:", err);
+        await refreshCart();
+      }
+    } else {
+      await refreshCart();
+    }
+    await refreshProfile();
+  }, [refreshCart, refreshProfile]);
+
   // Initialize Session: check cookie session without forcing auto-login
   useEffect(() => {
     const initSession = async () => {
       try {
         const user = await api<User>("/auth/me");
         if (user) {
-          setCurrentUser(user);
-          await Promise.all([refreshProfile(), refreshCart()]);
+          await onAuthSuccess(user);
         }
       } catch {
         // Guest mode: unauthenticated users browse freely
         setCurrentUser(null);
         setProfile(null);
-        setCart(null);
+        const stored = getStoredGuestCart();
+        setCart(stored.length > 0 ? buildCartResponseFromGuestItems(stored) : null);
       }
     };
 
     refreshCatalog();
     initSession();
-  }, [refreshCatalog, refreshCart, refreshProfile]);
+  }, [refreshCatalog, onAuthSuccess]);
 
   const handleLogout = async () => {
     await logoutUser();
     setCurrentUser(null);
     setProfile(null);
     setCart(null);
+    clearStoredGuestCart();
     router.push("/");
   };
 
   const handleAddToCart = async (food: Food, quantity = 1) => {
     if (!currentUser) {
-      setAuthModalOpen(true);
+      const currentGuest = getStoredGuestCart();
+      const existing = currentGuest.find(
+        (it) => it.item_type === "food" && it.food_id === food.id
+      );
+      let updated: GuestCartItem[];
+      if (existing) {
+        updated = currentGuest.map((it) =>
+          it.food_id === food.id ? { ...it, quantity: it.quantity + quantity } : it
+        );
+      } else {
+        updated = [
+          ...currentGuest,
+          {
+            id: `guest_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+            item_type: "food",
+            food_id: food.id,
+            name: food.name,
+            category: food.category,
+            unit: food.unit,
+            unit_price_inr: food.price_inr,
+            quantity,
+          },
+        ];
+      }
+      saveStoredGuestCart(updated);
+      setCart(buildCartResponseFromGuestItems(updated));
+      setCartOpen(true);
       return;
     }
     try {
@@ -143,7 +265,39 @@ export const NutriverseProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const handleAddPackToCart = async (tier: string, packName: string, customization: any) => {
     if (!currentUser) {
-      setAuthModalOpen(true);
+      const currentGuest = getStoredGuestCart();
+      const existing = currentGuest.find(
+        (it) => it.item_type === "pack" && it.pack_tier === tier
+      );
+      const tierPrices: Record<string, number> = {
+        basic: 699,
+        minimal_plus: 1199,
+        premium: 1899,
+      };
+      const price = tierPrices[tier] || 699;
+      let updated: GuestCartItem[];
+      if (existing) {
+        updated = currentGuest.map((it) =>
+          it.pack_tier === tier ? { ...it, quantity: it.quantity + 1 } : it
+        );
+      } else {
+        updated = [
+          ...currentGuest,
+          {
+            id: `guest_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+            item_type: "pack",
+            pack_tier: tier,
+            pack_name: packName,
+            name: packName,
+            unit_price_inr: price,
+            quantity: 1,
+            customization,
+          },
+        ];
+      }
+      saveStoredGuestCart(updated);
+      setCart(buildCartResponseFromGuestItems(updated));
+      setCartOpen(true);
       return;
     }
     try {
@@ -166,7 +320,31 @@ export const NutriverseProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const handleAddMultipleToCart = async (items: Array<{ food: Food; quantity: number }>) => {
     if (!currentUser) {
-      setAuthModalOpen(true);
+      let currentGuest = getStoredGuestCart();
+      for (const item of items) {
+        const existing = currentGuest.find(
+          (it) => it.item_type === "food" && it.food_id === item.food.id
+        );
+        if (existing) {
+          currentGuest = currentGuest.map((it) =>
+            it.food_id === item.food.id ? { ...it, quantity: it.quantity + item.quantity } : it
+          );
+        } else {
+          currentGuest.push({
+            id: `guest_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+            item_type: "food",
+            food_id: item.food.id,
+            name: item.food.name,
+            category: item.food.category,
+            unit: item.food.unit,
+            unit_price_inr: item.food.price_inr,
+            quantity: item.quantity,
+          });
+        }
+      }
+      saveStoredGuestCart(currentGuest);
+      setCart(buildCartResponseFromGuestItems(currentGuest));
+      setCartOpen(true);
       return;
     }
     try {
@@ -184,6 +362,22 @@ export const NutriverseProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       setCartOpen(true);
     } catch (err: any) {
       alert(err?.message || "Failed to add recipe ingredients to bag");
+    }
+  };
+
+  const handleRemoveFromCart = async (itemId: string) => {
+    if (!currentUser || itemId.startsWith("guest_")) {
+      const currentGuest = getStoredGuestCart();
+      const updated = currentGuest.filter((it) => it.id !== itemId);
+      saveStoredGuestCart(updated);
+      setCart(buildCartResponseFromGuestItems(updated));
+    } else {
+      try {
+        await api(`/cart/items/${itemId}`, { method: "DELETE" });
+        await refreshCart();
+      } catch (err: any) {
+        console.error("Failed to remove item from cart:", err);
+      }
     }
   };
 
@@ -217,6 +411,8 @@ export const NutriverseProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         handleAddToCart,
         handleAddPackToCart,
         handleAddMultipleToCart,
+        handleRemoveFromCart,
+        onAuthSuccess,
       }}
     >
       {children}

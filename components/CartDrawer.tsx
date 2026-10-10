@@ -1,8 +1,10 @@
 "use client";
 
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import { X, Trash2, ShoppingBag, ArrowRight, ShieldCheck, CheckCircle2, Truck, AlertCircle, RefreshCw } from "lucide-react";
 import { CartResponse, CartItemModel, api, money } from "@/lib/api";
+import { useNutriverse } from "@/components/NutriverseProvider";
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -19,6 +21,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   onRefreshCart,
   onOrderPlaced,
 }) => {
+  const router = useRouter();
+  const { currentUser, setAuthModalOpen, handleRemoveFromCart } = useNutriverse();
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,7 +41,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
   const handleRemove = async (itemId: string) => {
     try {
-      await api(`/cart/items/${itemId}`, { method: "DELETE" });
+      await handleRemoveFromCart(itemId);
       onRefreshCart();
     } catch (err: any) {
       setError(err?.message || "Failed to remove item.");
@@ -368,7 +372,15 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
               <button
                 type="button"
-                onClick={() => setIsCheckingOut(true)}
+                onClick={() => {
+                  if (!currentUser) {
+                    onClose();
+                    router.push("/checkout");
+                    setAuthModalOpen(true);
+                  } else {
+                    setIsCheckingOut(true);
+                  }
+                }}
                 className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl shadow-md transition flex items-center justify-center gap-2"
               >
                 Proceed to Checkout <ArrowRight className="w-4 h-4" />

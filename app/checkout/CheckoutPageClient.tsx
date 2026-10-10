@@ -31,6 +31,12 @@ export default function CheckoutPageClient() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  React.useEffect(() => {
+    if (currentUser?.name) {
+      setFullName(currentUser.name);
+    }
+  }, [currentUser]);
+
   if (!currentUser) {
     return (
       <div className="max-w-md mx-auto px-4 py-16 text-center space-y-5 animate-in fade-in">

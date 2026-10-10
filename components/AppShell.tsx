@@ -42,6 +42,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children, activeTabOverride 
     setMobileMenuOpen,
     handleLogout,
     handleAddToCart,
+    onAuthSuccess,
   } = useNutriverse();
 
   const getActiveTab = (): ActiveTab => {
@@ -133,9 +134,8 @@ export const AppShell: React.FC<AppShellProps> = ({ children, activeTabOverride 
       <AuthModal
         isOpen={authModalOpen}
         onClose={() => setAuthModalOpen(false)}
-        onAuthSuccess={(user) => {
-          setCurrentUser(user);
-          refreshCart();
+        onAuthSuccess={async (user) => {
+          await onAuthSuccess(user);
         }}
       />
 

@@ -17,12 +17,11 @@ import { api, money } from "@/lib/api";
 
 export default function CartPageClient() {
   const router = useRouter();
-  const { cart, refreshCart, currentUser, setAuthModalOpen } = useNutriverse();
+  const { cart, refreshCart, currentUser, setAuthModalOpen, handleRemoveFromCart } = useNutriverse();
 
   const handleRemove = async (itemId: string) => {
     try {
-      await api(`/cart/items/${itemId}`, { method: "DELETE" });
-      await refreshCart();
+      await handleRemoveFromCart(itemId);
     } catch (err: any) {
       alert(err?.message || "Failed to remove item");
     }
@@ -150,6 +149,7 @@ export default function CartPageClient() {
               type="button"
               onClick={() => {
                 if (!currentUser) {
+                  router.push("/checkout");
                   setAuthModalOpen(true);
                 } else {
                   router.push("/checkout");
