@@ -252,3 +252,241 @@ def test_role_guards():
     created = client.post("/api/admin/foods", headers=admin_headers, json=food_payload)
     assert created.status_code == 200
     assert created.json()["name"] == "Test Superfood Berry"
+
+
+def test_failsafe_environment_default_and_production_startup(monkeypatch):
+    """Verify APP_ENV defaults to production when unset, and in production startup creates NO users and disables dev shortcuts."""
+    from backend.app.main import Settings, validate_secret_safety, seed_initial_data, Food
+
+    # 1. Test when APP_ENV is unset
+    monkeypatch.delenv("APP_ENV", raising=False)
+    unset_settings = Settings()
+    assert unset_settings.app_env == "production"
+
+    # 2. Test when APP_ENV is explicitly 'production'
+    monkeypatch.setenv("APP_ENV", "production")
+    prod_settings = Settings()
+    assert prod_settings.app_env == "production"
+
+    # 3. Verify /api/auth/config reports dev shortcuts disabled when in production
+    old_env = settings.app_env
+    try:
+        settings.app_env = "production"
+        cfg = client.get("/api/auth/config").json()
+        assert cfg["app_env"] == "production"
+        assert cfg["development"] is False
+        assert cfg["demo_shortcuts_enabled"] is False
+
+        # 4. Verify seed_initial_data creates NO users in production
+        # In a test session with production env, user seeding is bypassed
+        with SessionLocal() as session:
+            init_users = session.scalars(select(User).where(User.email.like("%@prodtest.local"))).all()
+            assert len(init_users) == 0
+    finally:
+        settings.app_env = old_env
+
+
+def test_secret_safety_validation():
+    """Verify that outside development, startup refuses to run if JWT_SECRET is missing, a known default, or < 32 chars."""
+    from backend.app.main import Settings, validate_secret_safety
+
+    # 1. Missing / empty secret in production
+    s_empty = Settings(app_env="production", jwt_secret="")
+    with pytest.raises(RuntimeError, match="CRITICAL SECRET SAFETY FAILURE"):
+        validate_secret_safety(s_empty)
+
+    # 2. Known insecure default
+    s_default = Settings(app_env="production", jwt_secret="change-this-in-production-long-secure-key")
+    with pytest.raises(RuntimeError, match="CRITICAL SECRET SAFETY FAILURE"):
+        validate_secret_safety(s_default)
+
+    s_dev_default = Settings(app_env="production", jwt_secret="nutriverse_dev_secret_key_change_in_production_12345")
+    with pytest.raises(RuntimeError, match="CRITICAL SECRET SAFETY FAILURE"):
+        validate_secret_safety(s_dev_default)
+
+    # 3. Shorter than 32 characters
+    s_short = Settings(app_env="production", jwt_secret="too-short-key-under-32-chars")
+    with pytest.raises(RuntimeError, match="CRITICAL SECRET SAFETY FAILURE"):
+        validate_secret_safety(s_short)
+
+    # 4. Valid secure secret (>= 32 chars and not in known defaults) succeeds
+    s_secure = Settings(app_env="production", jwt_secret="cryptographically-secure-random-token-production-value-987654321")
+    validate_secret_safety(s_secure)  # Should not raise!
+
+    # 5. In development, defaults are tolerated for rapid local boot
+    s_dev = Settings(app_env="development", jwt_secret="")
+    validate_secret_safety(s_dev)  # Should not raise!
+
+
+def test_refresh_token_reuse_detection_revokes_token_family():
+    """Verify that presenting an already-revoked refresh token revokes the entire token family and forces re-login."""
+    # 1. Register a fresh user
+    from uuid import uuid4
+    unique_email = f"familytest_{uuid4().hex[:8]}@nutriverse.local"
+    reg = client.post(
+        "/api/auth/register",
+        json={"name": "Family Test User", "email": unique_email, "password": "SecurePass123!"},
+    )
+    assert reg.status_code == 200
+    token_1 = reg.cookies.get("nutriverse_refresh")
+    csrf_token = reg.cookies.get("nutriverse_csrf")
+    assert token_1 is not None
+
+    # 2. Legitimate rotation: use token_1 to get token_2
+    rot_1 = client.post(
+        "/api/auth/refresh",
+        cookies={"nutriverse_refresh": token_1, "nutriverse_csrf": csrf_token},
+        headers={"X-CSRF-Token": csrf_token},
+    )
+    assert rot_1.status_code == 200
+    token_2 = rot_1.cookies.get("nutriverse_refresh")
+    csrf_token_2 = rot_1.cookies.get("nutriverse_csrf")
+
+    # 3. Legitimate rotation: use token_2 to get token_3
+    rot_2 = client.post(
+        "/api/auth/refresh",
+        cookies={"nutriverse_refresh": token_2, "nutriverse_csrf": csrf_token_2},
+        headers={"X-CSRF-Token": csrf_token_2},
+    )
+    assert rot_2.status_code == 200
+    token_3 = rot_2.cookies.get("nutriverse_refresh")
+    csrf_token_3 = rot_2.cookies.get("nutriverse_csrf")
+
+    # Verify token_3 is currently valid
+    with SessionLocal() as s:
+        import hashlib
+        t3_hash = hashlib.sha256(token_3.encode("utf-8")).hexdigest()
+        rec3 = s.scalar(select(RefreshToken).where(RefreshToken.token_hash == t3_hash))
+        assert rec3 is not None
+        assert rec3.revoked is False
+        family_id = rec3.family_id
+
+    # 4. REUSE ATTEMPT: Replay old token_1 (which was already rotated and revoked)
+    replay_res = client.post(
+        "/api/auth/refresh",
+        cookies={"nutriverse_refresh": token_1, "nutriverse_csrf": csrf_token_3},
+        headers={"X-CSRF-Token": csrf_token_3},
+    )
+    assert replay_res.status_code == 401
+    assert "reuse detected" in replay_res.json()["detail"].lower()
+
+    # 5. Verify the entire token family was revoked in the DB
+    with SessionLocal() as s:
+        family_tokens = s.scalars(select(RefreshToken).where(RefreshToken.family_id == family_id)).all()
+        assert len(family_tokens) >= 3
+        for tok in family_tokens:
+            assert tok.revoked is True
+
+    # 6. Legitimate user trying to use token_3 MUST now be rejected (401), forcing re-login!
+    blocked_res = client.post(
+        "/api/auth/refresh",
+        cookies={"nutriverse_refresh": token_3, "nutriverse_csrf": csrf_token_3},
+        headers={"X-CSRF-Token": csrf_token_3},
+    )
+    assert blocked_res.status_code == 401
+
+
+def test_csrf_protection_on_refresh_and_logout():
+    """Verify CSRF double-submit token enforcement on /api/auth/refresh and /api/auth/logout."""
+    # Login as Alex
+    login_res = client.post("/api/auth/login", json={"email": "alex@nutriverse.local", "password": "Customer123!"})
+    refresh_tok = login_res.cookies.get("nutriverse_refresh")
+    csrf_tok = login_res.cookies.get("nutriverse_csrf")
+
+    # 1. /api/auth/refresh with missing CSRF header -> 403 Forbidden
+    no_csrf_refresh = client.post(
+        "/api/auth/refresh",
+        cookies={"nutriverse_refresh": refresh_tok, "nutriverse_csrf": csrf_tok},
+    )
+    assert no_csrf_refresh.status_code == 403
+
+    # 2. /api/auth/refresh with mismatched CSRF header -> 403 Forbidden
+    bad_csrf_refresh = client.post(
+        "/api/auth/refresh",
+        cookies={"nutriverse_refresh": refresh_tok, "nutriverse_csrf": csrf_tok},
+        headers={"X-CSRF-Token": "tampered-csrf-token"},
+    )
+    assert bad_csrf_refresh.status_code == 403
+
+    # 3. /api/auth/logout with missing CSRF header -> 403 Forbidden
+    no_csrf_logout = client.post(
+        "/api/auth/logout",
+        cookies={"nutriverse_refresh": refresh_tok, "nutriverse_csrf": csrf_tok},
+    )
+    assert no_csrf_logout.status_code == 403
+
+    # 4. /api/auth/logout with matching CSRF header -> 200 OK
+    good_logout = client.post(
+        "/api/auth/logout",
+        cookies={"nutriverse_refresh": refresh_tok, "nutriverse_csrf": csrf_tok},
+        headers={"X-CSRF-Token": csrf_tok},
+    )
+    assert good_logout.status_code == 200
+
+
+def test_guest_cart_merge_quantities_stock_and_server_prices():
+    """Verify guest cart merge endpoint sums quantities, caps at stock, and enforces server prices."""
+    from backend.app.main import Food, CartItem, CalinPackTier
+
+    # 1. Login user
+    login_res = client.post("/api/auth/login", json={"email": "alex@nutriverse.local", "password": "Customer123!"})
+    token = login_res.json()["access_token"]
+    csrf_tok = login_res.cookies.get("nutriverse_csrf")
+    headers = {"Authorization": f"Bearer {token}", "X-CSRF-Token": csrf_tok}
+
+    with SessionLocal() as s:
+        # Clear existing cart for clean test
+        user = s.scalar(select(User).where(User.email == "alex@nutriverse.local"))
+        s.query(CartItem).filter(CartItem.user_id == user.id).delete()
+
+        # Find or create a food with specific stock and price
+        food = s.scalar(select(Food).where(Food.active.is_(True)))
+        food_id = food.id
+        server_price = food.price_inr
+        food.stock_qty = 5  # Set stock limit to 5
+        s.commit()
+
+    # User already has 2 units in server cart
+    add_res = client.post(
+        "/api/cart/items",
+        headers=headers,
+        json={"item_type": "food", "food_id": food_id, "quantity": 2},
+    )
+    assert add_res.status_code == 200
+
+    # 2. Guest cart had:
+    # - 4 units of food_id with a fake malicious client price of 10 INR
+    # - 1 unit of Basic pack with a fake client price of 50 INR
+    merge_payload = {
+        "items": [
+            {
+                "item_type": "food",
+                "food_id": food_id,
+                "quantity": 4,  # 2 existing + 4 guest = 6, but stock is 5 -> should cap at 5
+            },
+            {
+                "item_type": "pack",
+                "pack_tier": "basic",
+                "quantity": 1,
+            },
+        ]
+    }
+
+    merge_res = client.post("/api/cart/merge", headers=headers, json=merge_payload)
+    assert merge_res.status_code == 200
+    cart_data = merge_res.json()
+
+    # 3. Assertions:
+    food_cart_item = next(it for it in cart_data["items"] if it.get("food_id") == food_id)
+    # Quantity must be capped at stock (5)
+    assert food_cart_item["quantity"] == 5
+    # Unit price must be server-authoritative (server_price), NOT client-supplied
+    assert food_cart_item["unit_price_inr"] == server_price
+    assert food_cart_item["total_inr"] == server_price * 5
+
+    # Pack item must have server base price (699 for basic pack)
+    pack_cart_item = next(it for it in cart_data["items"] if it["item_type"] == "pack")
+    assert pack_cart_item["pack_tier"] == "basic"
+    assert pack_cart_item["unit_price_inr"] == 699
+    assert pack_cart_item["quantity"] == 1
+

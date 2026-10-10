@@ -36,6 +36,7 @@ from sqlalchemy import (
     Text,
     create_engine,
     select,
+    update,
 )
 from sqlalchemy.orm import (
     DeclarativeBase,
@@ -48,14 +49,49 @@ from sqlalchemy.orm import (
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
-    app_env: str = "development"
+    app_env: str = "production"
     database_url: str = "sqlite:///./nutriverse.db"
-    jwt_secret: str = "change-this-in-production-long-secure-key"
+    jwt_secret: str = ""
     jwt_expire_minutes: int = 15
     refresh_token_expire_days: int = 7
     allowed_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
     cookie_secure: bool = False
     cookie_samesite: str = "lax"
+
+
+INSECURE_JWT_SECRETS = {
+    "change-this-in-production-long-secure-key",
+    "nutriverse_dev_secret_key_change_in_production_12345",
+    "replace-with-a-long-random-secret",
+    "secret",
+    "jwtsecret",
+    "default_secret",
+    "your-secret-key-here",
+    "changeme",
+    "password",
+    "12345678901234567890123456789012",
+}
+
+
+def get_jwt_secret(current_settings: Optional[Settings] = None) -> str:
+    s = current_settings or settings
+    sec = (s.jwt_secret or "").strip()
+    if sec:
+        return sec
+    if s.app_env == "development":
+        return "nutriverse_dev_secret_key_change_in_production_12345"
+    return ""
+
+
+def validate_secret_safety(current_settings: Settings) -> None:
+    if current_settings.app_env != "development":
+        sec = (current_settings.jwt_secret or "").strip()
+        if not sec or sec in INSECURE_JWT_SECRETS or len(sec) < 32:
+            raise RuntimeError(
+                f"CRITICAL SECRET SAFETY FAILURE: In '{current_settings.app_env}' environment, "
+                f"JWT_SECRET must be set to a cryptographically secure string of at least 32 characters "
+                f"and cannot be a known insecure default."
+            )
 
 
 settings = Settings()
@@ -267,6 +303,7 @@ class RefreshToken(Base):
     __tablename__ = "refresh_tokens"
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    family_id: Mapped[str] = mapped_column(String(36), index=True, default=lambda: str(uuid4()))
     token_hash: Mapped[str] = mapped_column(String(64), index=True)
     expires_at: Mapped[datetime] = mapped_column(DateTime, index=True)
     revoked: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -289,7 +326,7 @@ def create_access_token(user: User) -> str:
     expires = datetime.now(timezone.utc) + timedelta(minutes=settings.jwt_expire_minutes)
     return jwt.encode(
         {"sub": user.id, "name": user.name, "role": user.role, "type": "access", "exp": expires},
-        settings.jwt_secret,
+        get_jwt_secret(),
         algorithm=ALGORITHM,
     )
 
@@ -299,12 +336,14 @@ def token_for(user: User) -> str:
     return create_access_token(user)
 
 
-def create_refresh_token(user: User, session: Session) -> str:
+def create_refresh_token(user: User, session: Session, family_id: Optional[str] = None) -> str:
     raw_token = secrets.token_urlsafe(48)
     token_hash = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
     expires = datetime.now(timezone.utc) + timedelta(days=settings.refresh_token_expire_days)
+    token_family = family_id or str(uuid4())
     db_token = RefreshToken(
         user_id=user.id,
+        family_id=token_family,
         token_hash=token_hash,
         expires_at=expires,
         revoked=False,
@@ -317,18 +356,46 @@ def create_refresh_token(user: User, session: Session) -> str:
 def verify_and_rotate_refresh_token(raw_token: str, session: Session) -> tuple[User, str]:
     token_hash = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
     record = session.scalar(
-        select(RefreshToken).where(
-            RefreshToken.token_hash == token_hash,
-            RefreshToken.revoked.is_(False),
-            RefreshToken.expires_at > datetime.now(timezone.utc),
-        )
+        select(RefreshToken).where(RefreshToken.token_hash == token_hash)
     )
     if not record:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired refresh token",
+            detail="Invalid refresh token",
         )
-    # Revoke old token (rotation)
+
+    # 1. Reuse detection: if token is already revoked, revoke whole token family!
+    if record.revoked:
+        if record.family_id:
+            session.execute(
+                update(RefreshToken)
+                .where(RefreshToken.family_id == record.family_id)
+                .values(revoked=True)
+            )
+        else:
+            session.execute(
+                update(RefreshToken)
+                .where(RefreshToken.user_id == record.user_id)
+                .values(revoked=True)
+            )
+        session.commit()
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token reuse detected. Session terminated.",
+        )
+
+    # 2. Expiration check
+    rec_exp = record.expires_at
+    now_cmp = datetime.now(timezone.utc) if rec_exp.tzinfo is not None else datetime.utcnow()
+    if rec_exp <= now_cmp:
+        record.revoked = True
+        session.commit()
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Expired refresh token",
+        )
+
+    # 3. Legitimate rotation: revoke presented token
     record.revoked = True
     session.commit()
 
@@ -339,8 +406,8 @@ def verify_and_rotate_refresh_token(raw_token: str, session: Session) -> tuple[U
             detail="User account not found",
         )
 
-    # Issue new rotated refresh token
-    new_raw = create_refresh_token(user, session)
+    # Issue new rotated token preserving family_id
+    new_raw = create_refresh_token(user, session, family_id=record.family_id)
     return user, new_raw
 
 
@@ -351,6 +418,12 @@ def revoke_refresh_token(raw_token: str, session: Session) -> bool:
     )
     if record:
         record.revoked = True
+        if record.family_id:
+            session.execute(
+                update(RefreshToken)
+                .where(RefreshToken.family_id == record.family_id)
+                .values(revoked=True)
+            )
         session.commit()
         return True
     return False
@@ -409,9 +482,10 @@ def clear_auth_cookies(response: Response) -> None:
 def verify_csrf(request: Request) -> None:
     if request.method in ("POST", "PUT", "DELETE", "PATCH"):
         cookie_access = request.cookies.get("nutriverse_access")
+        cookie_refresh = request.cookies.get("nutriverse_refresh")
         auth_header = request.headers.get("authorization")
         # If user relies on cookie auth
-        if cookie_access and (not auth_header or not auth_header.startswith("Bearer ")):
+        if (cookie_access or cookie_refresh) and (not auth_header or not auth_header.startswith("Bearer ")):
             csrf_cookie = request.cookies.get("nutriverse_csrf")
             csrf_header = request.headers.get("x-csrf-token")
             if not csrf_cookie or not csrf_header or csrf_cookie != csrf_header:
@@ -439,7 +513,7 @@ def current_user(
             detail="Authentication required",
         )
     try:
-        payload = jwt.decode(token, settings.jwt_secret, algorithms=[ALGORITHM])
+        payload = jwt.decode(token, get_jwt_secret(), algorithms=[ALGORITHM])
         user_id = payload.get("sub")
         if not user_id:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
@@ -1077,12 +1151,9 @@ def seed_initial_data() -> None:
             session.commit()
 
 
-# Seed initial data on module import
-seed_initial_data()
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    validate_secret_safety(settings)
     seed_initial_data()
     yield
 
@@ -1222,6 +1293,7 @@ def refresh(
     payload: Optional[RefreshPayload] = None,
     session: Session = Depends(db),
 ) -> dict[str, Any]:
+    verify_csrf(request)
     raw_token = (
         request.cookies.get("nutriverse_refresh")
         or (payload.refresh_token if payload else None)
@@ -1254,6 +1326,7 @@ def logout(
     request: Request,
     session: Session = Depends(db),
 ) -> dict[str, str]:
+    verify_csrf(request)
     raw_token = request.cookies.get("nutriverse_refresh")
     if raw_token:
         revoke_refresh_token(raw_token, session)
@@ -1711,6 +1784,92 @@ def remove_cart_item(
     session.delete(item)
     session.commit()
     return {"status": "removed"}
+
+
+class MergeCartItemPayload(BaseModel):
+    item_type: str = "food"  # food | pack
+    food_id: Optional[str] = None
+    pack_tier: Optional[str] = None
+    pack_name: Optional[str] = None
+    customization: Optional[Dict[str, Any]] = None
+    quantity: int = Field(ge=1, default=1)
+
+
+class MergeCartPayload(BaseModel):
+    items: List[MergeCartItemPayload]
+
+
+@app.post("/api/cart/merge")
+def merge_cart(
+    payload: MergeCartPayload,
+    request: Request,
+    user: User = Depends(current_user),
+    session: Session = Depends(db),
+) -> dict[str, Any]:
+    verify_csrf(request)
+    for it in payload.items:
+        if it.item_type == "pack":
+            if not it.pack_tier:
+                continue
+            tier_record = session.scalar(select(CalinPackTier).where(CalinPackTier.tier == it.pack_tier))
+            if not tier_record:
+                continue
+            server_unit_price = tier_record.base_price_inr
+            existing_pack = session.scalar(
+                select(CartItem).where(
+                    CartItem.user_id == user.id,
+                    CartItem.item_type == "pack",
+                    CartItem.pack_tier == it.pack_tier,
+                )
+            )
+            if existing_pack:
+                existing_pack.quantity += it.quantity
+            else:
+                session.add(
+                    CartItem(
+                        user_id=user.id,
+                        item_type="pack",
+                        pack_tier=it.pack_tier,
+                        pack_name=tier_record.name,
+                        customization_json=json.dumps(it.customization or {}),
+                        unit_price_inr=server_unit_price,
+                        quantity=it.quantity,
+                    )
+                )
+        else:
+            if not it.food_id:
+                continue
+            food = session.get(Food, it.food_id)
+            if not food or not food.active or food.stock_qty <= 0:
+                continue
+
+            existing_item = session.scalar(
+                select(CartItem).where(
+                    CartItem.user_id == user.id,
+                    CartItem.item_type == "food",
+                    CartItem.food_id == food.id,
+                )
+            )
+            current_qty = existing_item.quantity if existing_item else 0
+            # Sum quantities and cap at available stock
+            merged_qty = min(current_qty + it.quantity, food.stock_qty)
+            if merged_qty > 0:
+                if existing_item:
+                    existing_item.quantity = merged_qty
+                    existing_item.unit_price_inr = food.price_inr  # Authoritative server price
+                else:
+                    session.add(
+                        CartItem(
+                            user_id=user.id,
+                            item_type="food",
+                            food_id=food.id,
+                            unit_price_inr=food.price_inr,  # Authoritative server price
+                            quantity=merged_qty,
+                        )
+                    )
+
+    session.commit()
+    return get_cart(user=user, session=session)
 
 
 @app.post("/api/orders/checkout")
