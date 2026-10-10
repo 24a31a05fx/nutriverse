@@ -1,16 +1,30 @@
 from __future__ import annotations
 
+import hashlib
 import json
+import re
+import secrets
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any, Dict, Generator, List, Optional, Union
 from uuid import uuid4
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Query, status
+import bcrypt
+from fastapi import (
+    Cookie,
+    Depends,
+    FastAPI,
+    Header,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+    status,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from jose import JWTError, jwt
-from passlib.context import CryptContext
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from passlib.hash import pbkdf2_sha256
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy import (
     Boolean,
@@ -34,10 +48,14 @@ from sqlalchemy.orm import (
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    app_env: str = "development"
     database_url: str = "sqlite:///./nutriverse.db"
     jwt_secret: str = "change-this-in-production-long-secure-key"
-    jwt_expire_minutes: int = 120
+    jwt_expire_minutes: int = 15
+    refresh_token_expire_days: int = 7
     allowed_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
+    cookie_secure: bool = False
+    cookie_samesite: str = "lax"
 
 
 settings = Settings()
@@ -48,8 +66,28 @@ engine = create_engine(
     else {},
 )
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
-pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 ALGORITHM = "HS256"
+
+
+class PasswordHasher:
+    @staticmethod
+    def hash(password: str) -> str:
+        return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt(rounds=12)).decode("utf-8")
+
+    @staticmethod
+    def verify(password: str, hashed: str) -> bool:
+        try:
+            if hashed.startswith("$2a$") or hashed.startswith("$2b$"):
+                return bcrypt.checkpw(password.encode("utf-8"), hashed.encode("utf-8"))
+            elif hashed.startswith("$pbkdf2-sha256$"):
+                return pbkdf2_sha256.verify(password, hashed)
+            return False
+        except Exception:
+            return False
+
+    @staticmethod
+    def needs_rehash(hashed: str) -> bool:
+        return not (hashed.startswith("$2b$") or hashed.startswith("$2a$"))
 
 
 class Base(DeclarativeBase):
@@ -225,6 +263,16 @@ class AuditLog(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
+class RefreshToken(Base):
+    __tablename__ = "refresh_tokens"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    token_hash: Mapped[str] = mapped_column(String(64), index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, index=True)
+    revoked: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
 # Create all tables in database
 Base.metadata.create_all(engine)
 
@@ -237,34 +285,172 @@ def db() -> Generator[Session, None, None]:
         session.close()
 
 
-def token_for(user: User) -> str:
+def create_access_token(user: User) -> str:
     expires = datetime.now(timezone.utc) + timedelta(minutes=settings.jwt_expire_minutes)
     return jwt.encode(
-        {"sub": user.id, "name": user.name, "role": user.role, "exp": expires},
+        {"sub": user.id, "name": user.name, "role": user.role, "type": "access", "exp": expires},
         settings.jwt_secret,
         algorithm=ALGORITHM,
     )
 
 
+# Backward compatibility alias
+def token_for(user: User) -> str:
+    return create_access_token(user)
+
+
+def create_refresh_token(user: User, session: Session) -> str:
+    raw_token = secrets.token_urlsafe(48)
+    token_hash = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+    expires = datetime.now(timezone.utc) + timedelta(days=settings.refresh_token_expire_days)
+    db_token = RefreshToken(
+        user_id=user.id,
+        token_hash=token_hash,
+        expires_at=expires,
+        revoked=False,
+    )
+    session.add(db_token)
+    session.commit()
+    return raw_token
+
+
+def verify_and_rotate_refresh_token(raw_token: str, session: Session) -> tuple[User, str]:
+    token_hash = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+    record = session.scalar(
+        select(RefreshToken).where(
+            RefreshToken.token_hash == token_hash,
+            RefreshToken.revoked.is_(False),
+            RefreshToken.expires_at > datetime.now(timezone.utc),
+        )
+    )
+    if not record:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token",
+        )
+    # Revoke old token (rotation)
+    record.revoked = True
+    session.commit()
+
+    user = session.get(User, record.user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User account not found",
+        )
+
+    # Issue new rotated refresh token
+    new_raw = create_refresh_token(user, session)
+    return user, new_raw
+
+
+def revoke_refresh_token(raw_token: str, session: Session) -> bool:
+    token_hash = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+    record = session.scalar(
+        select(RefreshToken).where(RefreshToken.token_hash == token_hash)
+    )
+    if record:
+        record.revoked = True
+        session.commit()
+        return True
+    return False
+
+
+def generate_csrf_token() -> str:
+    return secrets.token_hex(24)
+
+
+def set_auth_cookies(
+    response: Response,
+    access_token: str,
+    refresh_token: str,
+    csrf_token: str,
+) -> None:
+    is_secure = settings.cookie_secure or settings.app_env == "production"
+    # Access token (15 mins)
+    response.set_cookie(
+        key="nutriverse_access",
+        value=access_token,
+        max_age=settings.jwt_expire_minutes * 60,
+        httponly=True,
+        secure=is_secure,
+        samesite="lax",
+        path="/",
+    )
+    # Refresh token (7 days)
+    response.set_cookie(
+        key="nutriverse_refresh",
+        value=refresh_token,
+        max_age=settings.refresh_token_expire_days * 86400,
+        httponly=True,
+        secure=is_secure,
+        samesite="lax",
+        path="/api/auth",
+    )
+    # CSRF token (readable by client)
+    response.set_cookie(
+        key="nutriverse_csrf",
+        value=csrf_token,
+        max_age=settings.refresh_token_expire_days * 86400,
+        httponly=False,
+        secure=is_secure,
+        samesite="lax",
+        path="/",
+    )
+
+
+def clear_auth_cookies(response: Response) -> None:
+    is_secure = settings.cookie_secure or settings.app_env == "production"
+    response.delete_cookie(key="nutriverse_access", path="/", secure=is_secure, samesite="lax")
+    response.delete_cookie(key="nutriverse_refresh", path="/api/auth", secure=is_secure, samesite="lax")
+    response.delete_cookie(key="nutriverse_csrf", path="/", secure=is_secure, samesite="lax")
+
+
+def verify_csrf(request: Request) -> None:
+    if request.method in ("POST", "PUT", "DELETE", "PATCH"):
+        cookie_access = request.cookies.get("nutriverse_access")
+        auth_header = request.headers.get("authorization")
+        # If user relies on cookie auth
+        if cookie_access and (not auth_header or not auth_header.startswith("Bearer ")):
+            csrf_cookie = request.cookies.get("nutriverse_csrf")
+            csrf_header = request.headers.get("x-csrf-token")
+            if not csrf_cookie or not csrf_header or csrf_cookie != csrf_header:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="CSRF token mismatch or missing",
+                )
+
+
 def current_user(
+    request: Request,
     authorization: Optional[str] = Header(default=None),
     session: Session = Depends(db),
 ) -> User:
-    if not authorization or not authorization.startswith("Bearer "):
+    token: Optional[str] = None
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization[7:].strip()
+    elif request.cookies.get("nutriverse_access"):
+        token = request.cookies.get("nutriverse_access")
+        verify_csrf(request)
+
+    if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication required",
         )
     try:
-        payload = jwt.decode(
-            authorization[7:], settings.jwt_secret, algorithms=[ALGORITHM]
-        )
-        user = session.get(User, payload.get("sub"))
+        payload = jwt.decode(token, settings.jwt_secret, algorithms=[ALGORITHM])
+        user_id = payload.get("sub")
+        if not user_id:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+        user = session.get(User, user_id)
     except JWTError:
         user = None
+
     if not user:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid session"
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired session",
         )
     return user
 
@@ -287,6 +473,23 @@ class AuthPayload(BaseModel):
     email: str = Field(min_length=5, max_length=255)
     password: str = Field(min_length=8, max_length=128)
     role: Optional[str] = Role.user.value
+
+    @field_validator("password")
+    @classmethod
+    def validate_password_rules(cls, v: str) -> str:
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters long")
+        if len(v) > 128:
+            raise ValueError("Password cannot exceed 128 characters")
+        if not re.search(r"[A-Z]", v):
+            raise ValueError("Password must contain at least one uppercase letter")
+        if not re.search(r"[a-z]", v):
+            raise ValueError("Password must contain at least one lowercase letter")
+        if not re.search(r"\d", v):
+            raise ValueError("Password must contain at least one digit")
+        if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", v):
+            raise ValueError("Password must contain at least one special character")
+        return v
 
 
 class LoginPayload(BaseModel):
@@ -439,31 +642,32 @@ from contextlib import asynccontextmanager
 
 def seed_initial_data() -> None:
     with SessionLocal() as session:
-        # 1. Seed Initial Accounts if not present
-        if not session.scalar(select(User).where(User.email == "alex@nutriverse.local")):
-            session.add_all(
-                [
-                    User(
-                        name="Alex Mercer (Customer)",
-                        email="alex@nutriverse.local",
-                        password_hash=pwd_context.hash("Customer123!"),
-                        role=Role.user.value,
-                    ),
-                    User(
-                        name="Dr. Priya Nair (Nutritionist)",
-                        email="dr.priya@nutriverse.local",
-                        password_hash=pwd_context.hash("Nutritionist123!"),
-                        role=Role.nutritionist.value,
-                    ),
-                    User(
-                        name="Store Admin (Operations)",
-                        email="admin@nutriverse.local",
-                        password_hash=pwd_context.hash("AdminPass123!"),
-                        role=Role.admin.value,
-                    ),
-                ]
-            )
-            session.commit()
+        # 1. Seed Initial Accounts ONLY when APP_ENV == "development"
+        if settings.app_env == "development":
+            if not session.scalar(select(User).where(User.email == "alex@nutriverse.local")):
+                session.add_all(
+                    [
+                        User(
+                            name="Alex Mercer (Customer)",
+                            email="alex@nutriverse.local",
+                            password_hash=PasswordHasher.hash("Customer123!"),
+                            role=Role.user.value,
+                        ),
+                        User(
+                            name="Dr. Priya Nair (Nutritionist)",
+                            email="dr.priya@nutriverse.local",
+                            password_hash=PasswordHasher.hash("Nutritionist123!"),
+                            role=Role.nutritionist.value,
+                        ),
+                        User(
+                            name="Store Admin (Operations)",
+                            email="admin@nutriverse.local",
+                            password_hash=PasswordHasher.hash("AdminPass123!"),
+                            role=Role.admin.value,
+                        ),
+                    ]
+                )
+                session.commit()
 
         # 2. Seed Foods Catalog
         if session.scalar(select(Food.id)) is None:
@@ -912,8 +1116,38 @@ def ready(session: Session = Depends(db)) -> dict[str, str]:
 
 
 # Auth Endpoints
+@app.get("/api/auth/csrf")
+def get_csrf(response: Response, request: Request) -> dict[str, str]:
+    existing = request.cookies.get("nutriverse_csrf")
+    token = existing if existing else generate_csrf_token()
+    is_secure = settings.cookie_secure or settings.app_env == "production"
+    response.set_cookie(
+        key="nutriverse_csrf",
+        value=token,
+        max_age=settings.refresh_token_expire_days * 86400,
+        httponly=False,
+        secure=is_secure,
+        samesite="lax",
+        path="/",
+    )
+    return {"csrf_token": token}
+
+
+@app.get("/api/auth/config")
+def get_auth_config() -> dict[str, Any]:
+    return {
+        "app_env": settings.app_env,
+        "development": settings.app_env == "development",
+        "demo_shortcuts_enabled": settings.app_env == "development",
+    }
+
+
 @app.post("/api/auth/register")
-def register(payload: AuthPayload, session: Session = Depends(db)) -> dict[str, Any]:
+def register(
+    payload: AuthPayload,
+    response: Response,
+    session: Session = Depends(db),
+) -> dict[str, Any]:
     email_clean = payload.email.lower().strip()
     if session.scalar(select(User).where(User.email == email_clean)):
         raise HTTPException(status_code=409, detail="Email already registered")
@@ -922,15 +1156,22 @@ def register(payload: AuthPayload, session: Session = Depends(db)) -> dict[str, 
     user = User(
         name=payload.name.strip(),
         email=email_clean,
-        password_hash=pwd_context.hash(payload.password),
+        password_hash=PasswordHasher.hash(payload.password),
         role=user_role,
     )
     session.add(user)
     session.commit()
     session.refresh(user)
+
+    access_token = create_access_token(user)
+    refresh_token = create_refresh_token(user, session)
+    csrf_token = generate_csrf_token()
+    set_auth_cookies(response, access_token, refresh_token, csrf_token)
+
     return {
-        "access_token": token_for(user),
+        "access_token": access_token,
         "token_type": "bearer",
+        "csrf_token": csrf_token,
         "user_id": user.id,
         "name": user.name,
         "email": user.email,
@@ -939,19 +1180,85 @@ def register(payload: AuthPayload, session: Session = Depends(db)) -> dict[str, 
 
 
 @app.post("/api/auth/login")
-def login(payload: LoginPayload, session: Session = Depends(db)) -> dict[str, Any]:
+def login(
+    payload: LoginPayload,
+    response: Response,
+    session: Session = Depends(db),
+) -> dict[str, Any]:
     email_clean = payload.email.lower().strip()
     user = session.scalar(select(User).where(User.email == email_clean))
-    if not user or not pwd_context.verify(payload.password, user.password_hash):
+    if not user or not PasswordHasher.verify(payload.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid email or password")
+
+    # If hash is legacy pbkdf2, rehash to bcrypt
+    if PasswordHasher.needs_rehash(user.password_hash):
+        user.password_hash = PasswordHasher.hash(payload.password)
+        session.commit()
+
+    access_token = create_access_token(user)
+    refresh_token = create_refresh_token(user, session)
+    csrf_token = generate_csrf_token()
+    set_auth_cookies(response, access_token, refresh_token, csrf_token)
+
     return {
-        "access_token": token_for(user),
+        "access_token": access_token,
         "token_type": "bearer",
+        "csrf_token": csrf_token,
         "user_id": user.id,
         "name": user.name,
         "email": user.email,
         "role": user.role,
     }
+
+
+class RefreshPayload(BaseModel):
+    refresh_token: Optional[str] = None
+
+
+@app.post("/api/auth/refresh")
+def refresh(
+    response: Response,
+    request: Request,
+    payload: Optional[RefreshPayload] = None,
+    session: Session = Depends(db),
+) -> dict[str, Any]:
+    raw_token = (
+        request.cookies.get("nutriverse_refresh")
+        or (payload.refresh_token if payload else None)
+    )
+    if not raw_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token required",
+        )
+
+    user, new_refresh_token = verify_and_rotate_refresh_token(raw_token, session)
+    new_access_token = create_access_token(user)
+    csrf_token = generate_csrf_token()
+    set_auth_cookies(response, new_access_token, new_refresh_token, csrf_token)
+
+    return {
+        "access_token": new_access_token,
+        "token_type": "bearer",
+        "csrf_token": csrf_token,
+        "user_id": user.id,
+        "name": user.name,
+        "email": user.email,
+        "role": user.role,
+    }
+
+
+@app.post("/api/auth/logout")
+def logout(
+    response: Response,
+    request: Request,
+    session: Session = Depends(db),
+) -> dict[str, str]:
+    raw_token = request.cookies.get("nutriverse_refresh")
+    if raw_token:
+        revoke_refresh_token(raw_token, session)
+    clear_auth_cookies(response)
+    return {"status": "logged_out"}
 
 
 @app.get("/api/auth/me")
