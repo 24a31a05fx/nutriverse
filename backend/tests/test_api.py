@@ -1,5 +1,5 @@
 from fastapi.testclient import TestClient
-from backend.app.main import app
+from backend.app.main import Food, SessionLocal, app
 
 client = TestClient(app)
 
@@ -131,7 +131,14 @@ def test_cart_and_demo_checkout():
         client.delete(f"/api/cart/items/{item['id']}", headers=headers)
 
     foods = client.get("/api/foods").json()
-    food_id = foods[0]["id"]
+    food = next((f for f in foods if f.get("stock_qty", 0) >= 5), foods[0])
+    food_id = food["id"]
+
+    with SessionLocal() as session:
+        f_record = session.get(Food, food_id)
+        if f_record and f_record.stock_qty < 10:
+            f_record.stock_qty = 50
+            session.commit()
 
     # Add food to cart
     add_food = client.post("/api/cart/items", headers=headers, json={"item_type": "food", "food_id": food_id, "quantity": 2})

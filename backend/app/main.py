@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import hashlib
+import inspect
 import json
+import os
 import re
 import secrets
+import typing
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any, Dict, Generator, List, Optional, Union
@@ -22,6 +25,8 @@ from fastapi import (
     status,
 )
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 from jose import JWTError, jwt
 from passlib.hash import pbkdf2_sha256
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
@@ -58,6 +63,12 @@ class Settings(BaseSettings):
     allowed_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
     cookie_secure: bool = False
     cookie_samesite: str = "lax"
+    rate_limit_login: str = "5/minute"
+    rate_limit_register: str = "5/minute"
+    rate_limit_refresh: str = "10/minute"
+    rate_limit_ai_chat: str = "10/minute"
+    trusted_proxy: Optional[str] = None
+    redis_url: Optional[str] = None
 
 
 INSECURE_JWT_SECRETS = {
@@ -96,6 +107,47 @@ def validate_secret_safety(current_settings: Settings) -> None:
 
 
 settings = Settings()
+
+
+def get_client_ip(request: Request) -> str:
+    # Behind the Next.js proxy, read the client IP from X-Forwarded-For only when TRUSTED_PROXY is configured
+    trusted_proxy = settings.trusted_proxy or os.environ.get("TRUSTED_PROXY")
+    if trusted_proxy:
+        forwarded = request.headers.get("x-forwarded-for")
+        if forwarded:
+            return forwarded.split(",")[0].strip()
+    if request.client and request.client.host:
+        return request.client.host
+    return "127.0.0.1"
+
+
+redis_storage = settings.redis_url or os.environ.get("REDIS_URL")
+if redis_storage:
+    limiter = Limiter(key_func=get_client_ip, storage_uri=redis_storage)
+else:
+    limiter = Limiter(key_func=get_client_ip)
+
+
+def rate_limit_endpoint(decorator: Any) -> Any:
+    """Preserves resolved type annotations and FastAPI signatures for slowapi-wrapped endpoints under string annotations."""
+    def wrap(fn: Any) -> Any:
+        typed_hints = typing.get_type_hints(fn, fn.__globals__)
+        raw_sig = inspect.signature(fn)
+        decorated = decorator(fn)
+        decorated.__signature__ = inspect.Signature(
+            [
+                inspect.Parameter(
+                    p.name,
+                    p.kind,
+                    default=p.default,
+                    annotation=typed_hints.get(p.name, p.annotation),
+                )
+                for p in raw_sig.parameters.values()
+            ],
+            return_annotation=typed_hints.get("return", raw_sig.return_annotation),
+        )
+        return decorated
+    return wrap
 engine = create_engine(
     settings.database_url,
     connect_args={"check_same_thread": False}
@@ -1184,6 +1236,9 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[origin.strip() for origin in settings.allowed_origins.split(",")],
@@ -1233,6 +1288,8 @@ def get_auth_config() -> dict[str, Any]:
 
 
 @app.post("/api/auth/register")
+@app.post("/auth/register")
+@rate_limit_endpoint(limiter.shared_limit(lambda: settings.rate_limit_register, scope="auth_register"))
 def register(
     payload: AuthPayload,
     response: Response,
@@ -1272,6 +1329,8 @@ def register(
 
 
 @app.post("/api/auth/login")
+@app.post("/auth/login")
+@rate_limit_endpoint(limiter.shared_limit(lambda: settings.rate_limit_login, scope="auth_login"))
 def login(
     payload: LoginPayload,
     response: Response,
@@ -1310,6 +1369,8 @@ class RefreshPayload(BaseModel):
 
 
 @app.post("/api/auth/refresh")
+@app.post("/auth/refresh")
+@rate_limit_endpoint(limiter.shared_limit(lambda: settings.rate_limit_refresh, scope="auth_refresh"))
 def refresh(
     response: Response,
     request: Request,
@@ -2191,7 +2252,10 @@ def submit_nutritionist_review(
 
 # Grounded AI Nutrition Assistant (Rule & Database Retrieval)
 @app.post("/api/ai/chat")
+@app.post("/ai/chat")
+@rate_limit_endpoint(limiter.shared_limit(lambda: settings.rate_limit_ai_chat, scope="ai_chat"))
 def ai_nutrition_chat(
+    request: Request,
     question: str = Query(min_length=2, max_length=500),
     user: User = Depends(current_user),
     session: Session = Depends(db),
