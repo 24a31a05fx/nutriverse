@@ -390,6 +390,33 @@ Below is the verified status and commit attribution for the 8 original architect
 - **Phone OTP Status:** **DEFERRED** as an optional supplementary authentication channel for post-pilot consideration.
 - **Reason:** Phone OTP requires contracting an Indian SMS aggregator, provisioning a DLT (Distributed Ledger Technology) sender entity under TRAI regulations, registering message templates, and paying recurring per-SMS carrier fees. Email + password provides an immediate, zero-marginal-cost, secure authentication foundation suitable for the Vijayawada pilot.
 
+#### 6.3.1 CSRF Protection Architecture & State-Changing Endpoint Matrix (P2 & P3)
+
+- **Mechanism (Double-Submit Cookie Pattern):**
+  1. **Token Generation & Issuance:** Unauthenticated and authenticated clients obtain a cryptographically random 256-bit token (`generate_csrf_token()`) via `GET /api/auth/csrf` or upon login/registration. This token is delivered as the `nutriverse_csrf` cookie (`SameSite=Lax`, `path="/"`, `HttpOnly=False` allowing standard client application reads) and returned in JSON response bodies.
+  2. **Login & Registration Protection (Login CSRF Neutralization):** In `POST /api/auth/login` and `POST /api/auth/register`, `verify_csrf(request)` is enforced. If the incoming request carries a `nutriverse_csrf` cookie, the client **must** supply a matching `X-CSRF-Token` header. Cross-origin attacker sites cannot read cross-origin cookies or forge standard headers under SameSite browser controls, neutralizing Login CSRF attacks where an attacker forces a victim to authenticate under the attacker's account.
+  3. **Authenticated State-Changing Request Validation:** All authenticated mutations (`POST`, `PUT`, `DELETE`, `PATCH`) relying on ambient browser cookies (`nutriverse_access` or `nutriverse_refresh`) execute `verify_csrf(request)` in `current_user` dependency resolution or dedicated endpoint handlers (`/api/auth/refresh`, `/api/auth/logout`). If `nutriverse_csrf` cookie is present, `X-CSRF-Token` header is mandatory and must match the cookie value exactly.
+  4. **Native API / Bearer Token Exemption:** Direct API consumers using `Authorization: Bearer <jwt>` are safely exempt because browsers never ambiently attach custom `Authorization` headers on cross-origin requests.
+  5. **Exempt Endpoints & Justification:**
+     - Safe HTTP methods per RFC 7231 (`GET`, `HEAD`) such as catalog discovery (`/api/foods`, `/api/packs`, `/api/recipes`), health status (`/health`, `/ready`), and read-only profile/cart queries.
+     - Pure computational helper endpoints that do not persist data or mutate state:
+       - `POST /api/combinations/calculate`: Pure stateless calorie/macro optimization math.
+       - `POST /api/packs/customize`: Pure client calculation of bundle customization cost/nutrient variance.
+       - `POST /api/ai/chat`: Ephemeral conversational completion without persistent database mutation.
+  6. **Covered State-Changing Endpoints:**
+     - `/api/auth/register`, `/api/auth/login`, `/api/auth/refresh`, `/api/auth/logout`
+     - `/api/profile` (POST)
+     - `/api/cart/items` (POST, DELETE), `/api/cart/merge` (POST)
+     - `/api/orders/checkout` (POST)
+     - `/api/subscriptions` (POST), `/api/subscriptions/{id}/status` (PUT)
+     - `/api/nutritionist/requests` (POST), `/api/nutritionist/requests/{id}/review` (POST)
+     - `/api/admin/orders/{id}/status` (PUT), `/api/admin/foods` (POST)
+
+- **Guest Cart Price & Name Isolation (P3):**
+  - **Client Persistence:** Unauthenticated guest cart items in `localStorage` (`nutriverse_guest_cart`) store strictly item identifiers and user quantities: `{ id, item_type, food_id, pack_tier, quantity, customization }`. No product prices, names, units, or categories are persisted in browser storage.
+  - **Dynamic Client Resolution:** The frontend resolves food titles and prices dynamically from the active catalog in memory for display purposes only.
+  - **Server-Authoritative Cart Merging:** Upon login, the guest items payload is sent to `POST /api/cart/merge`. The server completely ignores any client-supplied `price`, `unit_price_inr`, or `name`. Prices and available inventory stock are resolved authoritatively from the backend database at merge time.
+
 ---
 
 ### 6.4 Tracked Requirements Borrowed into the Roadmap (B4)

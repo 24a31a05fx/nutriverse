@@ -126,10 +126,11 @@ def test_csrf_protection_on_cookie_auth():
     assert csrf_cookie
 
     # 2. Mutating request with cookie auth but MISSING X-CSRF-Token header -> MUST BE 403
-    cookies = {"nutriverse_access": access_cookie, "nutriverse_csrf": csrf_cookie}
+    client.cookies.clear()
+    client.cookies.set("nutriverse_access", access_cookie)
+    client.cookies.set("nutriverse_csrf", csrf_cookie)
     bad_req = client.post(
         "/api/profile",
-        cookies=cookies,
         json={"age": 30, "sex": "male", "height_cm": 175, "weight_kg": 72, "activity_level": 1.4},
     )
     assert bad_req.status_code == 403
@@ -138,7 +139,6 @@ def test_csrf_protection_on_cookie_auth():
     # 3. Mutating request with MISMATCHED X-CSRF-Token header -> MUST BE 403
     mismatch_req = client.post(
         "/api/profile",
-        cookies=cookies,
         headers={"X-CSRF-Token": "completely_wrong_token"},
         json={"age": 30, "sex": "male", "height_cm": 175, "weight_kg": 72, "activity_level": 1.4},
     )
@@ -147,12 +147,12 @@ def test_csrf_protection_on_cookie_auth():
     # 4. Mutating request with VALID X-CSRF-Token matching cookie -> MUST BE 200
     good_req = client.post(
         "/api/profile",
-        cookies=cookies,
         headers={"X-CSRF-Token": csrf_cookie},
         json={"age": 30, "sex": "male", "height_cm": 175, "weight_kg": 72, "activity_level": 1.4},
     )
     assert good_req.status_code == 200
     assert good_req.json()["calorie_target"] > 0
+    client.cookies.clear()
 
 
 def test_refresh_token_rotation_and_revocation():
@@ -165,9 +165,11 @@ def test_refresh_token_rotation_and_revocation():
     assert refresh_token
 
     # 1. Rotate refresh token
+    client.cookies.clear()
+    client.cookies.set("nutriverse_refresh", refresh_token)
+    client.cookies.set("nutriverse_csrf", csrf_token)
     ref_res = client.post(
         "/api/auth/refresh",
-        cookies={"nutriverse_refresh": refresh_token, "nutriverse_csrf": csrf_token},
         headers={"X-CSRF-Token": csrf_token},
     )
     assert ref_res.status_code == 200
@@ -176,28 +178,35 @@ def test_refresh_token_rotation_and_revocation():
     assert new_refresh != refresh_token
 
     # 2. Reusing OLD refresh token MUST FAIL (401 Revoked/Expired)
+    client.cookies.clear()
+    client.cookies.set("nutriverse_refresh", refresh_token)
+    client.cookies.set("nutriverse_csrf", csrf_token)
     old_res = client.post(
         "/api/auth/refresh",
-        cookies={"nutriverse_refresh": refresh_token, "nutriverse_csrf": csrf_token},
         headers={"X-CSRF-Token": csrf_token},
     )
     assert old_res.status_code == 401
 
     # 3. Explicit logout revokes the active refresh token
+    client.cookies.clear()
+    client.cookies.set("nutriverse_refresh", new_refresh)
+    client.cookies.set("nutriverse_csrf", csrf_token)
     logout_res = client.post(
         "/api/auth/logout",
-        cookies={"nutriverse_refresh": new_refresh, "nutriverse_csrf": csrf_token},
         headers={"X-CSRF-Token": csrf_token},
     )
     assert logout_res.status_code == 200
 
     # 4. Using revoked token after logout MUST FAIL (401)
+    client.cookies.clear()
+    client.cookies.set("nutriverse_refresh", new_refresh)
+    client.cookies.set("nutriverse_csrf", csrf_token)
     after_logout_res = client.post(
         "/api/auth/refresh",
-        cookies={"nutriverse_refresh": new_refresh, "nutriverse_csrf": csrf_token},
         headers={"X-CSRF-Token": csrf_token},
     )
     assert after_logout_res.status_code == 401
+    client.cookies.clear()
 
 
 def test_role_guards():
@@ -333,9 +342,11 @@ def test_refresh_token_reuse_detection_revokes_token_family():
     assert token_1 is not None
 
     # 2. Legitimate rotation: use token_1 to get token_2
+    client.cookies.clear()
+    client.cookies.set("nutriverse_refresh", token_1)
+    client.cookies.set("nutriverse_csrf", csrf_token)
     rot_1 = client.post(
         "/api/auth/refresh",
-        cookies={"nutriverse_refresh": token_1, "nutriverse_csrf": csrf_token},
         headers={"X-CSRF-Token": csrf_token},
     )
     assert rot_1.status_code == 200
@@ -343,9 +354,11 @@ def test_refresh_token_reuse_detection_revokes_token_family():
     csrf_token_2 = rot_1.cookies.get("nutriverse_csrf")
 
     # 3. Legitimate rotation: use token_2 to get token_3
+    client.cookies.clear()
+    client.cookies.set("nutriverse_refresh", token_2)
+    client.cookies.set("nutriverse_csrf", csrf_token_2)
     rot_2 = client.post(
         "/api/auth/refresh",
-        cookies={"nutriverse_refresh": token_2, "nutriverse_csrf": csrf_token_2},
         headers={"X-CSRF-Token": csrf_token_2},
     )
     assert rot_2.status_code == 200
@@ -362,9 +375,11 @@ def test_refresh_token_reuse_detection_revokes_token_family():
         family_id = rec3.family_id
 
     # 4. REUSE ATTEMPT: Replay old token_1 (which was already rotated and revoked)
+    client.cookies.clear()
+    client.cookies.set("nutriverse_refresh", token_1)
+    client.cookies.set("nutriverse_csrf", csrf_token_3)
     replay_res = client.post(
         "/api/auth/refresh",
-        cookies={"nutriverse_refresh": token_1, "nutriverse_csrf": csrf_token_3},
         headers={"X-CSRF-Token": csrf_token_3},
     )
     assert replay_res.status_code == 401
@@ -378,12 +393,15 @@ def test_refresh_token_reuse_detection_revokes_token_family():
             assert tok.revoked is True
 
     # 6. Legitimate user trying to use token_3 MUST now be rejected (401), forcing re-login!
+    client.cookies.clear()
+    client.cookies.set("nutriverse_refresh", token_3)
+    client.cookies.set("nutriverse_csrf", csrf_token_3)
     blocked_res = client.post(
         "/api/auth/refresh",
-        cookies={"nutriverse_refresh": token_3, "nutriverse_csrf": csrf_token_3},
         headers={"X-CSRF-Token": csrf_token_3},
     )
     assert blocked_res.status_code == 401
+    client.cookies.clear()
 
 
 def test_csrf_protection_on_refresh_and_logout():
@@ -394,34 +412,85 @@ def test_csrf_protection_on_refresh_and_logout():
     csrf_tok = login_res.cookies.get("nutriverse_csrf")
 
     # 1. /api/auth/refresh with missing CSRF header -> 403 Forbidden
-    no_csrf_refresh = client.post(
-        "/api/auth/refresh",
-        cookies={"nutriverse_refresh": refresh_tok, "nutriverse_csrf": csrf_tok},
-    )
+    client.cookies.clear()
+    client.cookies.set("nutriverse_refresh", refresh_tok)
+    client.cookies.set("nutriverse_csrf", csrf_tok)
+    no_csrf_refresh = client.post("/api/auth/refresh")
     assert no_csrf_refresh.status_code == 403
 
     # 2. /api/auth/refresh with mismatched CSRF header -> 403 Forbidden
     bad_csrf_refresh = client.post(
         "/api/auth/refresh",
-        cookies={"nutriverse_refresh": refresh_tok, "nutriverse_csrf": csrf_tok},
         headers={"X-CSRF-Token": "tampered-csrf-token"},
     )
     assert bad_csrf_refresh.status_code == 403
 
     # 3. /api/auth/logout with missing CSRF header -> 403 Forbidden
-    no_csrf_logout = client.post(
-        "/api/auth/logout",
-        cookies={"nutriverse_refresh": refresh_tok, "nutriverse_csrf": csrf_tok},
-    )
+    no_csrf_logout = client.post("/api/auth/logout")
     assert no_csrf_logout.status_code == 403
 
     # 4. /api/auth/logout with matching CSRF header -> 200 OK
     good_logout = client.post(
         "/api/auth/logout",
-        cookies={"nutriverse_refresh": refresh_tok, "nutriverse_csrf": csrf_tok},
         headers={"X-CSRF-Token": csrf_tok},
     )
     assert good_logout.status_code == 200
+    client.cookies.clear()
+
+
+def test_csrf_protection_on_login_and_register():
+    """Verify CSRF double-submit token enforcement on /api/auth/login and /api/auth/register (P2)."""
+    csrf_res = client.get("/api/auth/csrf")
+    assert csrf_res.status_code == 200
+    csrf_tok = csrf_res.json()["csrf_token"]
+
+    # 1. /api/auth/login with CSRF cookie present but missing header -> 403 Forbidden
+    client.cookies.clear()
+    client.cookies.set("nutriverse_csrf", csrf_tok)
+    bad_login = client.post(
+        "/api/auth/login",
+        json={"email": "alex@nutriverse.local", "password": "Customer123!"},
+    )
+    assert bad_login.status_code == 403
+    assert "CSRF" in bad_login.json()["detail"]
+
+    # 2. /api/auth/login with mismatched CSRF header -> 403 Forbidden
+    mismatch_login = client.post(
+        "/api/auth/login",
+        headers={"X-CSRF-Token": "mismatched-token"},
+        json={"email": "alex@nutriverse.local", "password": "Customer123!"},
+    )
+    assert mismatch_login.status_code == 403
+
+    # 3. /api/auth/login with matching CSRF header -> 200 OK
+    good_login = client.post(
+        "/api/auth/login",
+        headers={"X-CSRF-Token": csrf_tok},
+        json={"email": "alex@nutriverse.local", "password": "Customer123!"},
+    )
+    assert good_login.status_code == 200
+    assert good_login.json()["email"] == "alex@nutriverse.local"
+
+    # 4. /api/auth/register with CSRF cookie present but missing header -> 403 Forbidden
+    from uuid import uuid4
+    reg_email = f"csrf_reg_{uuid4().hex[:8]}@example.com"
+    client.cookies.clear()
+    client.cookies.set("nutriverse_csrf", csrf_tok)
+    bad_reg = client.post(
+        "/api/auth/register",
+        json={"name": "CSRF Test User", "email": reg_email, "password": "SecurePassword123!"},
+    )
+    assert bad_reg.status_code == 403
+
+    # 5. /api/auth/register with matching CSRF header -> 200 OK
+    good_reg = client.post(
+        "/api/auth/register",
+        headers={"X-CSRF-Token": csrf_tok},
+        json={"name": "CSRF Test User", "email": reg_email, "password": "SecurePassword123!"},
+    )
+    assert good_reg.status_code == 200
+    assert good_reg.json()["email"] == reg_email
+    client.cookies.clear()
 
 
 def test_guest_cart_merge_quantities_stock_and_server_prices():
@@ -455,19 +524,25 @@ def test_guest_cart_merge_quantities_stock_and_server_prices():
     assert add_res.status_code == 200
 
     # 2. Guest cart had:
-    # - 4 units of food_id with a fake malicious client price of 10 INR
-    # - 1 unit of Basic pack with a fake client price of 50 INR
+    # - 4 units of food_id with a fake malicious client price of 1 INR and manipulated name
+    # - 1 unit of Basic pack with a fake client price of 5 INR
     merge_payload = {
         "items": [
             {
                 "item_type": "food",
                 "food_id": food_id,
                 "quantity": 4,  # 2 existing + 4 guest = 6, but stock is 5 -> should cap at 5
+                "unit_price_inr": 1,
+                "price": 1,
+                "name": "Malicious Injected Price 1 INR",
             },
             {
                 "item_type": "pack",
                 "pack_tier": "basic",
                 "quantity": 1,
+                "unit_price_inr": 5,
+                "base_price_inr": 5,
+                "name": "Malicious 5 INR Pack",
             },
         ]
     }
@@ -480,13 +555,15 @@ def test_guest_cart_merge_quantities_stock_and_server_prices():
     food_cart_item = next(it for it in cart_data["items"] if it.get("food_id") == food_id)
     # Quantity must be capped at stock (5)
     assert food_cart_item["quantity"] == 5
-    # Unit price must be server-authoritative (server_price), NOT client-supplied
+    # Unit price must be server-authoritative (server_price), and client price (1) is completely ignored
     assert food_cart_item["unit_price_inr"] == server_price
+    assert food_cart_item["unit_price_inr"] != 1
     assert food_cart_item["total_inr"] == server_price * 5
 
-    # Pack item must have server base price (699 for basic pack)
+    # Pack item must have server base price (699 for basic pack), and client price (5) is completely ignored
     pack_cart_item = next(it for it in cart_data["items"] if it["item_type"] == "pack")
     assert pack_cart_item["pack_tier"] == "basic"
     assert pack_cart_item["unit_price_inr"] == 699
+    assert pack_cart_item["unit_price_inr"] != 5
     assert pack_cart_item["quantity"] == 1
 

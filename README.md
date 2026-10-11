@@ -59,7 +59,7 @@ public/assets/             Static assets served by the web client
 ## Prerequisites
 
 - Node.js 20 or later and npm.
-- Python 3.12 recommended for the API.
+- Python 3.12 (pinned to 3.12.10) required for the API.
 
 ## Run locally
 

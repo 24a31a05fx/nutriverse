@@ -386,7 +386,7 @@ def verify_and_rotate_refresh_token(raw_token: str, session: Session) -> tuple[U
 
     # 2. Expiration check
     rec_exp = record.expires_at
-    now_cmp = datetime.now(timezone.utc) if rec_exp.tzinfo is not None else datetime.utcnow()
+    now_cmp = datetime.now(timezone.utc) if rec_exp.tzinfo is not None else datetime.now(timezone.utc).replace(tzinfo=None)
     if rec_exp <= now_cmp:
         record.revoked = True
         session.commit()
@@ -483,10 +483,10 @@ def verify_csrf(request: Request) -> None:
     if request.method in ("POST", "PUT", "DELETE", "PATCH"):
         cookie_access = request.cookies.get("nutriverse_access")
         cookie_refresh = request.cookies.get("nutriverse_refresh")
+        csrf_cookie = request.cookies.get("nutriverse_csrf")
         auth_header = request.headers.get("authorization")
-        # If user relies on cookie auth
-        if (cookie_access or cookie_refresh) and (not auth_header or not auth_header.startswith("Bearer ")):
-            csrf_cookie = request.cookies.get("nutriverse_csrf")
+        # If user relies on cookie auth or has an established CSRF session
+        if (cookie_access or cookie_refresh or csrf_cookie) and (not auth_header or not auth_header.startswith("Bearer ")):
             csrf_header = request.headers.get("x-csrf-token")
             if not csrf_cookie or not csrf_header or csrf_cookie != csrf_header:
                 raise HTTPException(
@@ -1217,8 +1217,10 @@ def get_auth_config() -> dict[str, Any]:
 def register(
     payload: AuthPayload,
     response: Response,
+    request: Request,
     session: Session = Depends(db),
 ) -> dict[str, Any]:
+    verify_csrf(request)
     email_clean = payload.email.lower().strip()
     if session.scalar(select(User).where(User.email == email_clean)):
         raise HTTPException(status_code=409, detail="Email already registered")
@@ -1254,8 +1256,10 @@ def register(
 def login(
     payload: LoginPayload,
     response: Response,
+    request: Request,
     session: Session = Depends(db),
 ) -> dict[str, Any]:
+    verify_csrf(request)
     email_clean = payload.email.lower().strip()
     user = session.scalar(select(User).where(User.email == email_clean))
     if not user or not PasswordHasher.verify(payload.password, user.password_hash):

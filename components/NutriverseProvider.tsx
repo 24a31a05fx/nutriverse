@@ -17,11 +17,6 @@ interface GuestCartItem {
   item_type: "food" | "pack";
   food_id?: string;
   pack_tier?: string;
-  pack_name?: string;
-  name: string;
-  category?: string;
-  unit?: string;
-  unit_price_inr: number;
   quantity: number;
   customization?: Record<string, any>;
 }
@@ -50,24 +45,58 @@ function clearStoredGuestCart(): void {
   } catch {}
 }
 
-function buildCartResponseFromGuestItems(items: GuestCartItem[]): CartResponse {
-  const subtotal = items.reduce((acc, it) => acc + it.unit_price_inr * it.quantity, 0);
-  const delivery_fee = subtotal > 800 || subtotal === 0 ? 0 : 49;
-  return {
-    items: items.map((it) => ({
+const PACK_TIER_META: Record<string, { name: string; price: number }> = {
+  basic: { name: "Calin Basic Pack", price: 699 },
+  minimal_plus: { name: "Calin Minimal Plus Pack", price: 1099 },
+  premium: { name: "Calin Premium Pack", price: 1699 },
+};
+
+function buildCartResponseFromGuestItems(items: GuestCartItem[], catalog: Food[] = []): CartResponse {
+  let subtotal = 0;
+  const cartItems = items.map((it) => {
+    let name = "Grocery Item";
+    let category = "Grocery";
+    let unit = "1 unit";
+    let unit_price = 0;
+
+    if (it.item_type === "pack") {
+      const tierMeta = PACK_TIER_META[it.pack_tier || "basic"] || PACK_TIER_META.basic;
+      name = tierMeta.name;
+      category = "Calin Pack";
+      unit = "1 bundle";
+      unit_price = tierMeta.price;
+    } else if (it.food_id) {
+      const food = catalog.find((f) => f.id === it.food_id);
+      if (food) {
+        name = food.name;
+        category = food.category;
+        unit = food.unit;
+        unit_price = food.price_inr;
+      }
+    }
+
+    const itemTotal = unit_price * it.quantity;
+    subtotal += itemTotal;
+
+    return {
       id: it.id,
       item_type: it.item_type,
       food_id: it.food_id,
       pack_tier: it.pack_tier,
-      name: it.name,
-      category: it.category,
-      unit: it.unit,
-      unit_price_inr: it.unit_price_inr,
+      name,
+      category,
+      unit,
+      unit_price_inr: unit_price,
       quantity: it.quantity,
-      total_inr: it.unit_price_inr * it.quantity,
+      total_inr: itemTotal,
       customization: it.customization,
       stock_available: true,
-    })),
+    };
+  });
+
+  const delivery_fee = subtotal > 800 || subtotal === 0 ? 0 : 49;
+  return {
+    items: cartItems,
     subtotal_inr: subtotal,
     delivery_fee_inr: delivery_fee,
     total_inr: subtotal + delivery_fee,
@@ -199,7 +228,7 @@ export const NutriverseProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         setCurrentUser(null);
         setProfile(null);
         const stored = getStoredGuestCart();
-        setCart(stored.length > 0 ? buildCartResponseFromGuestItems(stored) : null);
+        setCart(stored.length > 0 ? buildCartResponseFromGuestItems(stored, allFoods) : null);
       }
     };
 
@@ -234,16 +263,12 @@ export const NutriverseProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             id: `guest_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
             item_type: "food",
             food_id: food.id,
-            name: food.name,
-            category: food.category,
-            unit: food.unit,
-            unit_price_inr: food.price_inr,
             quantity,
           },
         ];
       }
       saveStoredGuestCart(updated);
-      setCart(buildCartResponseFromGuestItems(updated));
+      setCart(buildCartResponseFromGuestItems(updated, allFoods));
       setCartOpen(true);
       return;
     }
@@ -269,12 +294,6 @@ export const NutriverseProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const existing = currentGuest.find(
         (it) => it.item_type === "pack" && it.pack_tier === tier
       );
-      const tierPrices: Record<string, number> = {
-        basic: 699,
-        minimal_plus: 1199,
-        premium: 1899,
-      };
-      const price = tierPrices[tier] || 699;
       let updated: GuestCartItem[];
       if (existing) {
         updated = currentGuest.map((it) =>
@@ -287,16 +306,13 @@ export const NutriverseProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             id: `guest_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
             item_type: "pack",
             pack_tier: tier,
-            pack_name: packName,
-            name: packName,
-            unit_price_inr: price,
             quantity: 1,
             customization,
           },
         ];
       }
       saveStoredGuestCart(updated);
-      setCart(buildCartResponseFromGuestItems(updated));
+      setCart(buildCartResponseFromGuestItems(updated, allFoods));
       setCartOpen(true);
       return;
     }
@@ -334,16 +350,12 @@ export const NutriverseProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             id: `guest_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
             item_type: "food",
             food_id: item.food.id,
-            name: item.food.name,
-            category: item.food.category,
-            unit: item.food.unit,
-            unit_price_inr: item.food.price_inr,
             quantity: item.quantity,
           });
         }
       }
       saveStoredGuestCart(currentGuest);
-      setCart(buildCartResponseFromGuestItems(currentGuest));
+      setCart(buildCartResponseFromGuestItems(currentGuest, allFoods));
       setCartOpen(true);
       return;
     }
