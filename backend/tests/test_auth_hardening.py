@@ -269,9 +269,9 @@ def test_failsafe_environment_default_and_production_startup(monkeypatch):
     """Verify APP_ENV defaults to production when unset, and in production startup creates NO users and disables dev shortcuts."""
     from backend.app.main import Settings, validate_secret_safety, seed_initial_data, Food
 
-    # 1. Test when APP_ENV is unset
+    # 1. Test when APP_ENV is unset (without .env file)
     monkeypatch.delenv("APP_ENV", raising=False)
-    unset_settings = Settings()
+    unset_settings = Settings(_env_file=None)
     assert unset_settings.app_env == "production"
 
     # 2. Test when APP_ENV is explicitly 'production'

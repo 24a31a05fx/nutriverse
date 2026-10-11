@@ -476,3 +476,112 @@ To maintain rigorous engineering quality and auditability throughout the project
 3. **Transparent Integrations:** Zero simulated or mocked production responses in production paths. Clearly document any missing external credentials (e.g., Razorpay test keys, SMS gateway IDs) with honest status notes.
 4. **Phase Stop Points:** Conclude each phase with a comprehensive status report and **STOP**. Do not commence subsequent phases until explicit user approval ("continue") is granted.
 
+---
+
+## 7. Phase 1b Audit Update
+
+### 7.1 Execution Summary & Commit Attribution
+
+During Phase 1b and Phase 1b.1, the architectural foundation of Nutriverse was systematically hardened on branch `phase-1b`. All work was performed via incremental commits and verified against both SQLite and PostgreSQL databases.
+
+| Commit Hash | Component / Scope | Deliverables & Verification |
+|---|---|---|
+| `e6633fd` | **Security / Runtime** | Enforced CSRF double-submit token on `POST /api/auth/login` and `POST /api/auth/register`. Isolated client guest cart to store only `food_id` + `quantity`. Pinned Python 3.12 (`Dockerfile`, `.python-version`, `requirements.txt`). |
+| `f36effd` | **Compliance** | Swept residual cellular, clinical, and health claims across client views (`CalinPacksView`, `CombinationsView`, `FoodDetailModal`). |
+| `7dd169e` | **Database / Migrations** | Initialized Alembic. Created baseline migration `a5d2dd3a04f9_baseline_schema.py`. Replaced `Base.metadata.create_all()` with programmatic `alembic upgrade head` in application startup and test suites. |
+| `7d7bb80` | **Currency / Paise** | *(Tagged: `pre-paise`)* Migrated all monetary columns and calculations from whole Rupees to integer paise (`price_paise`, `base_price_paise`, `unit_price_paise`, `subtotal_paise`, `delivery_fee_paise`, `discount_paise`, `total_paise`, `monthly_spend_paise`). Added `gst_rate_percent` column. Created Alembic migration `c0a2e9def992_paise_migration.py`. Introduced `formatPaise()` frontend currency formatter using `Intl.NumberFormat("en-IN")`. Added 17 money math tests (`test_money_math.py`). |
+| `e3db0af` | **Performance / Indexes** | Added unique and composite database indexes: `ix_cart_items_cart_food`, `ix_subscriptions_user_status`, `ix_orders_user_created`, `ix_foods_category`, `ix_foods_barcode`, `ix_food_tags_tag`, `ix_refresh_tokens_family_revoked`. |
+| `6582e32` | **Security / Rate Limiting** | Integrated `slowapi` rate limiting on `/api/auth/login` (5/min), `/api/auth/register` (5/min), `/api/auth/refresh` (10/min), and `/api/ai/chat` (10/min). Implemented `TRUSTED_PROXY` validation for `X-Forwarded-For` header spoofing prevention. |
+| `801079b` | **DevOps / Dual-Database** | Added PostgreSQL (`psycopg2-binary`) and Redis drivers. Configured `docker-compose.yml` with PostgreSQL 16 and Redis 7. Verified full test suite execution on both SQLite and PostgreSQL. |
+| `3ee3280` | **Testing / E2E** | Added Playwright customer order journey test (`login -> pack selection -> cart -> checkout -> order detail`) asserting paise totals and production-mode security modal gating (`e2e/order_journey.spec.ts`). |
+| *(Current)* | **1b.1 Verification Checks** | Added committed paise migration bidirectional test (`test_paise_migration_proof.py`). Cleaned Compose credentials into `.env` / `.env.example` with healthchecks. Verified Redis rate limiting with real keys. Verified build, lint, and typecheck with zero errors. Rewrote production mode test to spawn real backend with `APP_ENV=production`. |
+
+---
+
+### 7.2 Paise Data Migration Proof (`test_paise_migration_proof.py`)
+
+To prove data integrity during database migration, a committed automated test suite was introduced:
+- **Test File:** `backend/tests/test_paise_migration_proof.py`
+- **Methodology:**
+  1. Fresh database is provisioned and upgraded specifically to `a5d2dd3a04f9` (the baseline schema revision immediately preceding `c0a2e9def992_paise_migration`).
+  2. Known test fixtures with unusual, non-round whole-Rupee amounts are inserted:
+     - `Food`: `price_inr = 199`
+     - `CalinPackTier`: `base_price_inr = 1099`
+     - `Cart` & `CartItem`: `unit_price_inr = 199`
+     - `Order`: `subtotal_inr = 33`, `delivery_fee_inr = 49`, `total_inr = 82` with item `unit_price_inr = 33` (stored in normalized columns and serialized in `items_json`)
+     - `Subscription`: `monthly_spend_inr = 1099`
+  3. Alembic is upgraded to `head` (`c0a2e9def992`):
+     - Asserts `food.price_paise == 19900` (`old * 100` exactly)
+     - Asserts `tier.base_price_paise == 109900` (`old * 100` exactly)
+     - Asserts `cart_item.unit_price_paise == 19900` (`old * 100` exactly)
+     - Asserts `order.subtotal_paise == 3300`, `order.delivery_fee_paise == 4900`, `order.total_paise == 8200`
+     - Asserts order total strictly equals the sum of line items + delivery fee
+     - Asserts nested `items_json` items carry `unit_price_paise == 3300`
+     - Asserts `subscription.monthly_spend_paise == 109900`
+  4. Alembic is downgraded to `a5d2dd3a04f9`:
+     - Asserts all values are restored to exact original integer Rupees (`199`, `1099`, `33`, `49`, `82`).
+- **Dual-Database Verification:** Executed and passing on both **SQLite** and **PostgreSQL 16**.
+
+---
+
+### 7.3 Automated Test Suite Verification
+
+As of Phase 1b.1, the Nutriverse automated test suite contains **49 total automated tests** across backend and frontend:
+
+| Suite | File | Tests | Status | Target Environments |
+|---|---|---|---|---|
+| **Backend Auth & Hardening** | `backend/tests/test_auth_hardening.py` | 14 | **38 passed** (combined) | SQLite & PostgreSQL 16 |
+| **Backend Rate Limiting** | `backend/tests/test_rate_limiting.py` | 5 | Passing | In-Memory & Redis 7 |
+| **Backend Money Math** | `backend/tests/test_money_math.py` | 17 | Passing | Pure integer paise arithmetic |
+| **Backend Migration Proof** | `backend/tests/test_paise_migration_proof.py` | 2 | Passing | SQLite & PostgreSQL 16 |
+| **Frontend Smoke E2E** | `e2e/smoke.spec.ts` | 9 | **11 passed** (combined) | Chromium / Next.js App Router |
+| **Frontend Order Journey E2E**| `e2e/order_journey.spec.ts` | 2 | Passing | Chromium / Real Production Backend |
+| **Total Automated Tests** | | **49** | **100% Passing** | |
+
+---
+
+### 7.4 Revised Roadmap Numbering Clarification
+
+To eliminate ambiguity regarding commerce and payment gateway integration:
+- **Phase 6: Cart, Checkout & Payments** is the dedicated phase for:
+  - Vijayawada pincode serviceability checks
+  - Delivery slot capacity allocation
+  - **Razorpay Test Mode Integration** (UPI, credit/debit cards, NetBanking)
+  - Atomic inventory stock reservation with TTL expiration
+  - Cryptographic HMAC-SHA256 signature verification for payment completion and webhook callbacks
+  - Idempotent order checkout handling
+- *(Note: Earlier draft documentation occasionally referenced payments in Phase 4; Phase 4 in the approved 13-phase roadmap is exclusively **Relational Catalog & Search**).*
+
+---
+
+### 7.5 Rate Limiting & Redis Operational Model
+
+- **Architecture:** `slowapi` intercepts incoming requests prior to route execution, keying rate limits on validated client IP addresses (respecting `X-Forwarded-For` only when `TRUSTED_PROXY=true`).
+- **Redis Verification:** With `REDIS_URL` configured (e.g., `redis://localhost:6379/0`), `limiter._limiter.storage` connects directly as `limits.storage.redis.RedisStorage`. Keys are written using Redis string keys (e.g., `LIMITS:LIMITER/<ip>/<endpoint>/<limit>/<window>`).
+- **In-Memory Mode:** When `REDIS_URL` is omitted, the limiter falls back to Python in-memory storage (`limits.storage.MemoryStorage`). **This fallback is strictly for local single-process development.** It does not synchronize state across multiple Uvicorn workers, container replicas, or serverless instances. Production environments must provide a Redis storage URI.
+
+---
+
+### 7.6 Docker Compose & Environment Variable Hygiene
+
+- All database and service credentials have been removed from `docker-compose.yml`.
+- Configuration values are interpolated from `.env` (with documented defaults in `.env.example`):
+  - `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`.
+- Production healthchecks are configured for infrastructure containers:
+  - PostgreSQL: `pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}`
+  - Redis: `redis-cli ping`
+- `docker compose ps` verifies that both services reach and maintain `healthy` status.
+
+---
+
+### 7.7 Honest Known Limitations & Forward Path
+
+In accordance with our engineering transparency guidelines, the following areas remain intentionally un-implemented or simplified until their designated roadmap phases:
+
+1. **Denormalized Catalog Schema:** The `foods` table currently stores nutritional macros (`calories`, `protein_g`, etc.) as flat columns on the food entity, and `orders.items_json` holds a serialized JSON array of order line items. Relational normalization (`Product`, `ProductVariant`, `NutrientValue`, `OrderItem`) is scheduled for **Phase 4 & Phase 6**.
+2. **Demo Checkout Workflow:** The current `/api/orders/checkout` endpoint creates confirmed orders without real payment authorization or atomic stock reservation. Real Razorpay checkout, webhook signature verification, and transactional inventory locks are scheduled for **Phase 6**.
+3. **Seeded Catalog Volume:** The active catalog contains 12 demonstration whole-food staples. Expansion to 40–60 verified Indian foods with IFCT 2017 empirical citations and licensed imagery is scheduled for **Phase 10**.
+4. **Nutritional Engine Scope:** Nutritional requirements currently utilize a baseline Mifflin–St Jeor calculation without ICMR-NIN RDA 2020 micronutrient reference tables or clinical safety floors. Complete engine guardrails are scheduled for **Phase 3**.
+5. **Deferred Initiatives:** Subscriptions, AI Assistant ("Nourish" Claude tool-calling), human Nutritionist consultation review queues, and Phone OTP remain explicitly deferred to post-pilot development.
+
+

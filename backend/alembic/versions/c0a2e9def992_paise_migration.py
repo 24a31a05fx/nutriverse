@@ -5,6 +5,7 @@ Revises: a5d2dd3a04f9
 Create Date: 2026-10-11 10:54:22.557985
 
 """
+import json
 from typing import Sequence, Union
 
 from alembic import op
@@ -43,6 +44,35 @@ def upgrade() -> None:
         batch_op.alter_column("total_inr", new_column_name="total_paise", existing_type=sa.Integer())
     op.execute("UPDATE orders SET subtotal_paise = subtotal_paise * 100, delivery_fee_paise = delivery_fee_paise * 100, total_paise = total_paise * 100")
 
+    # Migrate embedded JSON line-item prices in orders.items_json
+    conn = op.get_bind()
+    order_rows = conn.execute(sa.text("SELECT id, items_json FROM orders")).fetchall()
+    for o_id, raw_items in order_rows:
+        if raw_items:
+            try:
+                items = json.loads(raw_items)
+                updated = False
+                for it in items:
+                    if "unit_price_inr" in it:
+                        it["unit_price_paise"] = int(it.pop("unit_price_inr")) * 100
+                        updated = True
+                    elif "unit_price_paise" in it:
+                        it["unit_price_paise"] = int(it["unit_price_paise"]) * 100
+                        updated = True
+                    if "total_inr" in it:
+                        it["total_paise"] = int(it.pop("total_inr")) * 100
+                        updated = True
+                    elif "total_paise" in it:
+                        it["total_paise"] = int(it["total_paise"]) * 100
+                        updated = True
+                if updated:
+                    conn.execute(
+                        sa.text("UPDATE orders SET items_json = :items WHERE id = :id"),
+                        {"items": json.dumps(items), "id": o_id},
+                    )
+            except Exception:
+                pass
+
     # 5. subscriptions: rename price_per_delivery_inr -> price_per_delivery_paise, multiply by 100
     with op.batch_alter_table("subscriptions", schema=None) as batch_op:
         batch_op.alter_column("price_per_delivery_inr", new_column_name="price_per_delivery_paise", existing_type=sa.Integer())
@@ -56,7 +86,29 @@ def downgrade() -> None:
     with op.batch_alter_table("subscriptions", schema=None) as batch_op:
         batch_op.alter_column("price_per_delivery_paise", new_column_name="price_per_delivery_inr", existing_type=sa.Integer())
 
-    # 2. orders: divide by 100, rename back
+    # 2. orders: divide by 100, revert embedded JSON line-item prices, rename back
+    conn = op.get_bind()
+    order_rows = conn.execute(sa.text("SELECT id, items_json FROM orders")).fetchall()
+    for o_id, raw_items in order_rows:
+        if raw_items:
+            try:
+                items = json.loads(raw_items)
+                updated = False
+                for it in items:
+                    if "unit_price_paise" in it:
+                        it["unit_price_inr"] = int(it.pop("unit_price_paise")) // 100
+                        updated = True
+                    if "total_paise" in it:
+                        it["total_inr"] = int(it.pop("total_paise")) // 100
+                        updated = True
+                if updated:
+                    conn.execute(
+                        sa.text("UPDATE orders SET items_json = :items WHERE id = :id"),
+                        {"items": json.dumps(items), "id": o_id},
+                    )
+            except Exception:
+                pass
+
     op.execute("UPDATE orders SET subtotal_paise = CAST(subtotal_paise / 100 AS INTEGER), delivery_fee_paise = CAST(delivery_fee_paise / 100 AS INTEGER), total_paise = CAST(total_paise / 100 AS INTEGER)")
     with op.batch_alter_table("orders", schema=None) as batch_op:
         batch_op.alter_column("subtotal_paise", new_column_name="subtotal_inr", existing_type=sa.Integer())

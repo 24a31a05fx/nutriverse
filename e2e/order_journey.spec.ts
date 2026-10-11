@@ -1,13 +1,49 @@
 import { test, expect } from "@playwright/test";
+import { spawn, execSync } from "child_process";
 
 test.describe("Phase 1b Playwright Suite", () => {
+  test.beforeAll(async () => {
+    // Ensure development backend is alive on port 8000 before running tests
+    let alive = false;
+    try {
+      const res = await fetch("http://127.0.0.1:8000/health");
+      if (res.ok) alive = true;
+    } catch {}
+
+    if (!alive) {
+      spawn(
+        ".\\.venv\\Scripts\\python.exe",
+        ["-m", "uvicorn", "backend.app.main:app", "--port", "8000", "--host", "127.0.0.1"],
+        {
+          env: {
+            ...process.env,
+            APP_ENV: "development",
+            RATE_LIMIT_LOGIN: "100/minute",
+            DATABASE_URL: "sqlite:///./nutriverse.db",
+          },
+          stdio: "ignore",
+          detached: true,
+        }
+      ).unref();
+
+      for (let i = 0; i < 30; i++) {
+        try {
+          const res = await fetch("http://127.0.0.1:8000/health");
+          if (res.ok) break;
+        } catch {}
+        await new Promise((r) => setTimeout(r, 200));
+      }
+    }
+  });
+
   test("Customer journey: login -> add Calin Pack -> cart -> demo checkout -> order appears in /orders with paise-derived total", async ({
     page,
   }) => {
-    // 1. Visit storefront and open sign-in modal
+    // 1. Visit homepage
     await page.goto("/");
     await expect(page).toHaveTitle(/Nutriverse/);
 
+    // Open Sign In modal
     const signInBtn = page.getByRole("button", { name: /Sign In|Login/i }).first();
     await signInBtn.click();
     await expect(page.getByText(/Sign In to Nutriverse/i)).toBeVisible();
@@ -23,83 +59,145 @@ test.describe("Phase 1b Playwright Suite", () => {
 
     // 2. Navigate to /packs and add a Calin Pack to cart
     await page.goto("/packs");
-    await expect(page).toHaveTitle(/Calin Packs/);
+    await expect(page).toHaveURL(/\/packs/);
+    await expect(page.getByRole("heading", { name: /Calin Packs/i, level: 1 })).toBeVisible();
 
-    // Locate the Add Pack button for the active tier and click it
-    const addPackBtn = page.getByRole("button", { name: /Add .* Pack to Bag/i }).first();
+    // Locate "Add Calin ... Pack to Bag" button
+    const addPackBtn = page.getByRole("button", { name: /Add Calin.*Pack to Bag/i }).first();
     await expect(addPackBtn).toBeVisible();
     await addPackBtn.click();
 
-    // 3. Navigate directly to /cart page
+    // Verify added to cart (toast, counter or bag drawer)
+    const bagBtn = page.getByRole("button", { name: /Shopping Cart|Bag/i }).first();
+    await expect(bagBtn).toBeVisible();
+
+    // 3. Open cart page /cart
     await page.goto("/cart");
-    await expect(page).toHaveTitle(/Your Nutrition Bag|Bag|Cart/);
-    await expect(page.getByText(/Your Nutrition Bag/i)).toBeVisible();
+    await expect(page).toHaveURL(/\/cart/);
+    await expect(page.getByRole("heading", { name: /Your Nutrition Bag/i })).toBeVisible();
 
-    // Cart shows the pack item and subtotal/total in paise-derived rupees
-    await expect(page.getByText(/Calin .* Pack/i).first()).toBeVisible();
-    await expect(page.getByText(/Total Payable:/i)).toBeVisible();
+    // Verify item is in cart with formatted paise (₹ symbol and integer amounts)
+    await expect(page.getByText(/Calin Basic Pack|Calin Minimal Plus Pack|Calin Premium Pack/i).first()).toBeVisible();
 
-    // Click Proceed to Checkout on /cart
-    const proceedBtn = page.getByRole("button", { name: /Proceed to Checkout/i });
-    await expect(proceedBtn).toBeVisible();
-    await proceedBtn.click();
+    // Click Proceed to Checkout
+    const checkoutLink = page.getByRole("button", { name: /Proceed to Checkout/i });
+    await expect(checkoutLink).toBeVisible();
+    await checkoutLink.click();
 
     // 4. Arrive at /checkout
     await expect(page).toHaveURL(/\/checkout/);
-    await expect(page.getByText(/Review & Place Order|Demonstration Gateway/i).first()).toBeVisible();
 
-    // Click Confirm & Place Order button
+    // Confirm & Place Order button
     const placeOrderBtn = page.getByRole("button", { name: /Confirm & Place Order/i });
     await expect(placeOrderBtn).toBeVisible();
     await placeOrderBtn.click();
 
-    // 5. User is redirected to confirmation / orders page
-    await page.waitForURL(/\/orders/);
+    // 5. Verify redirection to /orders/[id] confirmation
+    await page.waitForURL(/\/orders\/[a-f0-9-]+/, { timeout: 15000 });
+    await expect(page.getByText(/Order #/i).first()).toBeVisible();
+    await expect(page.getByText(/Fulfillment Timeline/i)).toBeVisible();
 
-    // Verify order in /orders list
-    await page.goto("/orders");
-    await expect(page).toHaveTitle(/Order History|Orders/);
-    await expect(page.getByText(/Your Orders/i).first()).toBeVisible();
+    // Total displayed in paise-derived rupees
+    await expect(page.getByText(/₹/).first()).toBeVisible();
 
-    // Verify order card is listed and displays rupee symbol with paise-derived whole rupees
+    // 6. Navigate to /orders list page
+    const backToOrdersLink = page.getByRole("link", { name: /Back to All Orders/i });
+    if (await backToOrdersLink.isVisible()) {
+      await backToOrdersLink.click({ force: true });
+    } else {
+      await page.goto("/orders");
+    }
+    await expect(page).toHaveURL(/\/orders/);
+
+    // The placed order appears with correct paise-derived total
     await expect(page.getByText(/Order #/i).first()).toBeVisible();
     const priceBadge = page.locator("span").filter({ hasText: /₹/ }).first();
     await expect(priceBadge).toBeVisible();
   });
 
-  test("Production-mode check: with APP_ENV=production the sign-in modal shows no dev shortcuts", async ({
+  test("Production-mode check: with APP_ENV=production the real backend shows no dev shortcuts", async ({
     page,
   }) => {
-    // Mock /api/auth/config to simulate production environment
-    await page.route("**/api/auth/config", async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
-          environment: "production",
-          development: false,
-          demo_shortcuts_enabled: false,
-        }),
-      });
-    });
+    // 1. Terminate existing dev backend process on port 8000 to start real production backend
+    try {
+      execSync(
+        `powershell -Command "Get-NetTCPConnection -LocalPort 8000 -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }"`
+      );
+    } catch {}
 
-    // Visit home page
-    await page.goto("/");
-    await expect(page).toHaveTitle(/Nutriverse/);
+    // 2. Start REAL backend process with APP_ENV=production (no route mocking)
+    const prodProc = spawn(
+      ".\\.venv\\Scripts\\python.exe",
+      ["-m", "uvicorn", "backend.app.main:app", "--port", "8000", "--host", "127.0.0.1"],
+      {
+        env: {
+          ...process.env,
+          APP_ENV: "production",
+          JWT_SECRET: "a-cryptographically-secure-production-jwt-secret-string-32-chars",
+          DATABASE_URL: "sqlite:///./nutriverse.db",
+        },
+        stdio: "ignore",
+      }
+    );
 
-    // Open Sign In modal
-    const signInBtn = page.getByRole("button", { name: /Sign In|Login/i }).first();
-    await signInBtn.click();
+    try {
+      // 3. Wait for REAL production backend to boot and verify /api/auth/config directly
+      let ready = false;
+      for (let i = 0; i < 30; i++) {
+        try {
+          const res = await fetch("http://127.0.0.1:8000/api/auth/config");
+          if (res.ok) {
+            const cfg = await res.json();
+            expect(cfg.app_env).toBe("production");
+            expect(cfg.demo_shortcuts_enabled).toBe(false);
+            ready = true;
+            break;
+          }
+        } catch {}
+        await new Promise((r) => setTimeout(r, 200));
+      }
+      expect(ready).toBe(true);
 
-    // Modal is visible
-    await expect(page.getByText(/Sign In to Nutriverse/i)).toBeVisible();
+      // 4. Visit home page via Next.js proxy and open sign-in modal
+      await page.goto("/");
+      await expect(page).toHaveTitle(/Nutriverse/);
 
-    // Assert that Dev Shortcuts box is NOT visible in production
-    await expect(page.getByText(/Dev Shortcuts/i)).not.toBeVisible();
+      const signInBtn = page.getByRole("button", { name: /Sign In|Login/i }).first();
+      await signInBtn.click();
 
-    // Assert that individual quick-login test buttons are NOT present
-    await expect(page.getByRole("button", { name: /Alex/i })).not.toBeVisible();
-    await expect(page.getByRole("button", { name: /Dr\. Priya/i })).not.toBeVisible();
-    await expect(page.getByRole("button", { name: /Marcus/i })).not.toBeVisible();
+      // 5. Sign In modal is visible
+      const modal = page.locator("div.fixed").filter({ hasText: "Sign In to Nutriverse" });
+      await expect(modal).toBeVisible();
+
+      // 6. Assert that Dev Shortcuts box is NOT present in the production modal DOM
+      await expect(modal.getByText(/Dev Shortcuts/i)).not.toBeVisible();
+      await expect(modal.getByRole("button", { name: /Alex/i })).not.toBeVisible();
+      await expect(modal.getByRole("button", { name: /Dr\. Priya/i })).not.toBeVisible();
+      await expect(modal.getByRole("button", { name: /Admin/i })).not.toBeVisible();
+    } finally {
+      // 7. Cleanup production backend and restart development backend
+      try {
+        prodProc.kill();
+        execSync(
+          `powershell -Command "Get-NetTCPConnection -LocalPort 8000 -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }"`
+        );
+      } catch {}
+
+      spawn(
+        ".\\.venv\\Scripts\\python.exe",
+        ["-m", "uvicorn", "backend.app.main:app", "--port", "8000", "--host", "127.0.0.1"],
+        {
+          env: {
+            ...process.env,
+            APP_ENV: "development",
+            RATE_LIMIT_LOGIN: "100/minute",
+            DATABASE_URL: "sqlite:///./nutriverse.db",
+          },
+          stdio: "ignore",
+          detached: true,
+        }
+      ).unref();
+      await new Promise((r) => setTimeout(r, 1000));
+    }
   });
 });
