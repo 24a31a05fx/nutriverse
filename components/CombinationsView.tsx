@@ -116,7 +116,7 @@ export default function CombinationsView({ allFoods, onAddMultipleToCart }: Comb
           </h1>
           <p className="section-subtitle">
             Certain foods are biologically more powerful when eaten together. Pair iron-dense legumes
-            with Vitamin C greens, or complex carbs with healthy fats for sustained cellular energy.
+            with Vitamin C greens, or complex carbs with healthy fats for sustained daily energy.
           </p>
         </div>
 

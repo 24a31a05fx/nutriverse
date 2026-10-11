@@ -256,7 +256,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 <span className="text-[11px] text-gray-600 block">Basal Metabolic Rate (BMR)</span>
                 <span className="text-xl font-extrabold text-gray-900">{bmr} <span className="text-xs font-normal text-gray-600">kcal/day</span></span>
                 <p className="text-[10px] text-gray-600 mt-1">
-                  Baseline energy spent at complete rest for vital cellular and organ functions.
+                  Baseline energy spent at complete rest for vital metabolic and organ functions.
                 </p>
               </div>
 

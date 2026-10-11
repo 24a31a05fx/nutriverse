@@ -174,7 +174,7 @@ export default function FoodDetailClient({ food }: { food: Food }) {
               <div className="p-3 rounded-2xl bg-blue-50/70 border border-blue-200/70 text-center">
                 <span className="text-[10px] uppercase font-bold text-blue-800 block">Carbs</span>
                 <span className="text-lg font-black text-blue-950 block">{food.carbs_g}g</span>
-                <span className="text-[9px] text-blue-700">cellular fuel</span>
+                <span className="text-[9px] text-blue-700">active energy</span>
               </div>
               <div className="p-3 rounded-2xl bg-amber-50/70 border border-amber-200/70 text-center">
                 <span className="text-[10px] uppercase font-bold text-amber-800 block">Healthy Fat</span>

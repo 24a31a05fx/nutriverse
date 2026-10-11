@@ -211,7 +211,7 @@ export default function BarcodeLandingClient({ barcode, initialFood }: BarcodeLa
               </span>
               <h4 className="text-xs font-bold text-gray-900">{method}</h4>
               <p className="text-[11px] text-gray-600">
-                Preserves vital enzymes and cellular micronutrients.
+                Preserves vital enzymes and essential micronutrients.
               </p>
             </div>
           ))}
