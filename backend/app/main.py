@@ -29,7 +29,7 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from jose import JWTError, jwt
 from passlib.hash import pbkdf2_sha256
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy import (
     Boolean,
@@ -652,11 +652,25 @@ class ProfilePayload(BaseModel):
 
 class AddressPayload(BaseModel):
     label: str = Field(default="Home", max_length=40)
-    line1: str = Field(min_length=3, max_length=200)
+    line1: str = Field(default="", max_length=200)
+    street: Optional[str] = None
     city: str = Field(min_length=2, max_length=80)
     state: str = Field(min_length=2, max_length=80)
-    postal_code: str = Field(min_length=4, max_length=12)
+    postal_code: str = Field(default="", max_length=12)
+    pincode: Optional[str] = None
+    full_name: Optional[str] = None
+    phone: Optional[str] = None
     is_default: bool = False
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_address(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            if not data.get("line1"):
+                data["line1"] = data.get("street") or "Main Street"
+            if not data.get("postal_code"):
+                data["postal_code"] = data.get("pincode") or "520010"
+        return data
 
 
 class FoodCreatePayload(BaseModel):

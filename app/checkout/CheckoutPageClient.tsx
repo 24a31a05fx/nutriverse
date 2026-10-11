@@ -83,12 +83,15 @@ export default function CheckoutPageClient() {
     try {
       const payload = {
         address: {
-          full_name: fullName,
-          phone,
+          label: "Home",
+          line1: street,
           street,
           city,
           state,
+          postal_code: pincode,
           pincode,
+          full_name: fullName,
+          phone,
         },
         delivery_notes: notes,
       };
