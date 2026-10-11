@@ -67,8 +67,8 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({
 }) => {
   const [selectedCategory, setSelectedCategory] = useState("all");
 
-  // Free delivery threshold: ₹500 (50,000 paise)
-  const freeDeliveryThresholdPaise = 50000;
+  // Match the delivery threshold used by the cart and order APIs.
+  const freeDeliveryThresholdPaise = 80000;
   const remainingForFreeDeliveryPaise = Math.max(0, freeDeliveryThresholdPaise - cartTotalPaise);
   const freeDeliveryProgress = Math.min(100, Math.round((cartTotalPaise / freeDeliveryThresholdPaise) * 100));
 
@@ -148,9 +148,9 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({
   }, []);
 
   return (
-    <div className="space-y-6 pb-20">
+    <div className="nv-storefront space-y-6 pb-20">
       {/* 1. DELIVERY INCENTIVE BANNER (Reference B) */}
-      <section className="bg-gradient-to-r from-[#143e2b] via-[#1a4f37] to-[#143e2b] text-white px-4 py-3 sm:py-3.5 shadow-xs">
+      <section className="nv-delivery-banner bg-gradient-to-r from-[#143e2b] via-[#1a4f37] to-[#143e2b] text-white px-4 py-3 sm:py-3.5 shadow-xs">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-full bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-amber-300">
@@ -195,7 +195,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({
       </section>
 
       {/* 2. TEN-CATEGORY NAVIGATION STRIP (Reference B) */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6">
+      <section className="nv-category-nav max-w-7xl mx-auto px-4 sm:px-6">
         <div className="overflow-x-auto no-scrollbar py-2 -mx-4 px-4 sm:mx-0 sm:px-0">
           <div className="flex items-center gap-2 sm:gap-3" style={{ minWidth: "max-content" }}>
             {CATEGORIES.map((cat) => {
@@ -204,6 +204,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({
                 <button
                   key={cat.id}
                   type="button"
+                  aria-pressed={isSelected}
                   onClick={() => setSelectedCategory(cat.id)}
                   className={`flex items-center gap-2 px-3.5 py-2 rounded-2xl text-xs font-bold transition whitespace-nowrap cursor-pointer border ${
                     isSelected
@@ -221,10 +222,10 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({
       </section>
 
       {/* 3. COMPACT VALUE PROPOSITION & QUICK ACCESS CARDS */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6">
+      <section className="nv-storefront-intro max-w-7xl mx-auto px-4 sm:px-6">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-stretch">
           {/* Main Proposition Pill */}
-          <div className="md:col-span-8 bg-gradient-to-r from-[#faf6ef] via-[#f7f2e7] to-[#f4eee0] border border-[#e8dfcf] rounded-2xl p-4 sm:p-5 flex flex-col justify-between">
+          <div className="nv-value-proposition md:col-span-8 bg-gradient-to-r from-[#faf6ef] via-[#f7f2e7] to-[#f4eee0] border border-[#e8dfcf] rounded-2xl p-4 sm:p-5 flex flex-col justify-between">
             <div className="space-y-1.5">
               <div className="flex items-center gap-2">
                 <span className="px-2.5 py-0.5 bg-[#236b48] text-white text-[10px] font-bold rounded-full uppercase tracking-wider">
@@ -270,7 +271,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({
           </div>
 
           {/* Calin Pack Quick Spotlight */}
-          <div className="md:col-span-4 bg-gradient-to-br from-[#143e2b] to-[#0c281c] text-white rounded-2xl p-4 sm:p-5 flex flex-col justify-between border border-[#1b4d36] shadow-md">
+          <div className="nv-pack-spotlight md:col-span-4 bg-gradient-to-br from-[#143e2b] to-[#0c281c] text-white rounded-2xl p-4 sm:p-5 flex flex-col justify-between border border-[#1b4d36] shadow-md">
             <div>
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-300 bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-800/60">
@@ -295,7 +296,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({
       </section>
 
       {/* 3.1 SIX NUTRIENT TILES (Phase 1 & 4 Specification) */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6">
+      <section className="nv-nutrient-families max-w-7xl mx-auto px-4 sm:px-6">
         <div className="bg-white rounded-2xl border border-[#DDD3B8] p-4 sm:p-5">
           <div className="flex items-center justify-between mb-3">
             <div>

@@ -175,7 +175,7 @@ export default function AppHeader({
                 setLocalSearch(e.target.value);
                 if (onSearchChange) onSearchChange(e.target.value);
               }}
-              placeholder="Search 10,000+ groceries, dal, millets, veggies..."
+              placeholder="Search groceries, dal, millets, vegetables..."
               className="w-full pl-9 pr-16 py-2 bg-[#f4f1eb] hover:bg-white focus:bg-white text-xs sm:text-sm text-gray-800 placeholder-gray-500 rounded-full border border-gray-300 focus:border-[#236b48] focus:ring-2 focus:ring-[#236b48]/20 transition outline-hidden"
             />
             <Search className="w-4 h-4 text-gray-400 absolute left-3 pointer-events-none" />
@@ -390,7 +390,7 @@ export default function AppHeader({
                 setLocalSearch(e.target.value);
                 if (onSearchChange) onSearchChange(e.target.value);
               }}
-              placeholder="Search groceries, vegetables, millets..."
+              placeholder="Search groceries, dal, millets, vegetables..."
               className="w-full pl-9 pr-14 py-2 bg-[#f4f1eb] focus:bg-white text-xs text-gray-800 placeholder-gray-500 rounded-xl border border-gray-300 focus:border-[#236b48] outline-hidden shadow-inner"
             />
             <Search className="w-4 h-4 text-gray-400 absolute left-3 pointer-events-none" />

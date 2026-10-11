@@ -83,7 +83,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     <div
       onClick={() => onOpenDetail(product)}
       className="nv-grocery-card group cursor-pointer bg-white border border-[#e5dfd5] hover:border-[#236b48] rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition flex flex-col justify-between"
-      style={{ minWidth: "180px", position: "relative" }}
+      style={{ position: "relative" }}
     >
       {/* Top Media Container */}
       <div className="nv-card-media">

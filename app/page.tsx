@@ -250,7 +250,7 @@ export default function Home() {
   const cartTotalPaise = cart ? cart.total_paise : 0;
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#faf7f0] text-[#111a14] selection:bg-emerald-200">
+    <div className="nv-app min-h-screen flex flex-col bg-[#faf7f0] text-[#111a14] selection:bg-emerald-200">
       {/* 1. Master Application Header (Matching Reference B) */}
       <AppHeader
         activeTab={activeTab}
@@ -392,7 +392,7 @@ export default function Home() {
         <button
           type="button"
           onClick={() => setAssistantOpen(true)}
-          className="group flex items-center gap-2 px-3.5 py-2.5 sm:px-4 sm:py-3 bg-gradient-to-r from-emerald-800 to-teal-900 hover:from-emerald-700 hover:to-teal-800 text-white font-bold text-xs rounded-full shadow-xl hover:shadow-2xl transition transform hover:-translate-y-0.5 border border-emerald-600/40"
+          className="nv-assistant-trigger group flex items-center gap-2 px-3.5 py-2.5 sm:px-4 sm:py-3 bg-gradient-to-r from-emerald-800 to-teal-900 hover:from-emerald-700 hover:to-teal-800 text-white font-bold text-xs rounded-full shadow-xl hover:shadow-2xl transition transform hover:-translate-y-0.5 border border-emerald-600/40"
         >
           <div className="w-5 h-5 rounded-full bg-emerald-400 text-emerald-950 flex items-center justify-center font-bold text-xs shadow-inner">
             <Bot className="w-3 h-3" />
@@ -478,7 +478,7 @@ export default function Home() {
       />
 
       {/* 6. Comprehensive Application Footer */}
-      <footer className="bg-[#0c281c] text-white/90 pt-16 pb-24 md:pb-12 border-t border-[#1b4d36]">
+      <footer className="nv-app-footer bg-[#0c281c] text-white/90 pt-16 pb-24 md:pb-12 border-t border-[#1b4d36]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 space-y-12">
           <div className="grid grid-cols-2 md:grid-cols-5 gap-8">
             <div className="col-span-2 space-y-4">
