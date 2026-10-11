@@ -97,3 +97,107 @@ def test_invariance_upgrade_and_downgrade_multipliers():
         reverted_inr = paise // 100
         assert isinstance(reverted_inr, int)
         assert reverted_inr == inr
+
+
+def test_combinations_calculator_fractional_quantities():
+    """Verify that combinations calculator computes exact integer paise using round-half-up for fractional quantities."""
+    from fastapi.testclient import TestClient
+    from backend.app.main import app, SessionLocal, Food
+
+    client = TestClient(app)
+
+    with SessionLocal() as session:
+        f1 = session.get(Food, "f-frac-1")
+        if not f1:
+            f1 = Food(
+                id="f-frac-1",
+                name="Fractional Test Grain",
+                category="Grains",
+                description="Test food",
+                price_paise=3350,  # ₹33.50
+                calories=100.0,
+                protein_g=4.0,
+                carbs_g=20.0,
+                fat_g=1.0,
+                fibre_g=2.0,
+                stock_qty=50,
+            )
+            session.add(f1)
+        else:
+            f1.price_paise = 3350
+        f2 = session.get(Food, "f-frac-2")
+        if not f2:
+            f2 = Food(
+                id="f-frac-2",
+                name="Fractional Test Oil",
+                category="Oils",
+                description="Test food 2",
+                price_paise=19900,  # ₹199.00
+                calories=150.0,
+                protein_g=0.0,
+                carbs_g=0.0,
+                fat_g=15.0,
+                fibre_g=0.0,
+                stock_qty=50,
+            )
+            session.add(f2)
+        else:
+            f2.price_paise = 19900
+        session.commit()
+
+    # f1: 3350 * 0.5 = 1675 paise
+    # f2: 19900 * 1.5 = 29850 paise
+    # Total: 1675 + 29850 = 31525 paise
+    res = client.post(
+        "/api/combinations/calculate",
+        json={
+            "items": [
+                {"food_id": "f-frac-1", "quantity": 0.5},
+                {"food_id": "f-frac-2", "quantity": 1.5},
+            ]
+        },
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["total_price_paise"] == 31525
+    assert isinstance(data["total_price_paise"], int)
+
+    items = data["items"]
+    assert len(items) == 2
+    item1 = next(it for it in items if it["food_id"] == "f-frac-1")
+    item2 = next(it for it in items if it["food_id"] == "f-frac-2")
+
+    assert item1["price_paise"] == 1675
+    assert item2["price_paise"] == 29850
+    assert isinstance(item1["price_paise"], int)
+    assert isinstance(item2["price_paise"], int)
+
+    # Test round-half-up with odd fraction: 199 paise * 0.5 = 99.5 paise -> rounds to 100 paise
+    with SessionLocal() as session:
+        f3 = session.get(Food, "f-frac-3")
+        if not f3:
+            f3 = Food(
+                id="f-frac-3",
+                name="Odd Half Paise Food",
+                category="Herbs",
+                description="Test food 3",
+                price_paise=199,  # 199 paise
+                calories=10.0,
+                protein_g=0.5,
+                carbs_g=1.0,
+                fat_g=0.1,
+                fibre_g=0.5,
+                stock_qty=50,
+            )
+            session.add(f3)
+        else:
+            f3.price_paise = 199
+        session.commit()
+
+    res_odd = client.post(
+        "/api/combinations/calculate",
+        json={"items": [{"food_id": "f-frac-3", "quantity": 0.5}]},
+    )
+    assert res_odd.status_code == 200
+    assert res_odd.json()["total_price_paise"] == 100
+    assert res_odd.json()["items"][0]["price_paise"] == 100

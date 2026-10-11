@@ -71,7 +71,7 @@ function buildCartResponseFromGuestItems(items: GuestCartItem[], catalog: Food[]
         name = food.name;
         category = food.category;
         unit = food.unit;
-        unit_price = food.price_paise ?? (food.price_inr ? food.price_inr * 100 : 0);
+        unit_price = food.price_paise;
       }
     }
 
@@ -89,8 +89,6 @@ function buildCartResponseFromGuestItems(items: GuestCartItem[], catalog: Food[]
       unit_price_paise: unit_price,
       quantity: it.quantity,
       total_paise: itemTotal,
-      unit_price_inr: Math.floor(unit_price / 100),
-      total_inr: Math.floor(itemTotal / 100),
       customization: it.customization,
       stock_available: true,
     };
@@ -102,9 +100,6 @@ function buildCartResponseFromGuestItems(items: GuestCartItem[], catalog: Food[]
     subtotal_paise: subtotal,
     delivery_fee_paise: delivery_fee,
     total_paise: subtotal + delivery_fee,
-    subtotal_inr: Math.floor(subtotal / 100),
-    delivery_fee_inr: Math.floor(delivery_fee / 100),
-    total_inr: Math.floor((subtotal + delivery_fee) / 100),
   };
 }
 
@@ -239,6 +234,16 @@ export const NutriverseProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     refreshCatalog();
     initSession();
   }, [refreshCatalog, onAuthSuccess]);
+
+  // Synchronize guest cart when catalog loads or guest mode is active
+  useEffect(() => {
+    if (!currentUser) {
+      const stored = getStoredGuestCart();
+      if (stored.length > 0) {
+        setCart(buildCartResponseFromGuestItems(stored, allFoods));
+      }
+    }
+  }, [allFoods, currentUser]);
 
   const handleLogout = async () => {
     await logoutUser();
