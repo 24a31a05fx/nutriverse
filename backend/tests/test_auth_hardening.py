@@ -217,11 +217,13 @@ def test_role_guards():
     alex_headers = {"Authorization": f"Bearer {alex_token}"}
 
     # Dr. Priya is role 'nutritionist'
+    client.cookies.clear()
     priya_login = client.post("/api/auth/login", json={"email": "dr.priya@nutriverse.local", "password": "Nutritionist123!"})
     priya_token = priya_login.json()["access_token"]
     priya_headers = {"Authorization": f"Bearer {priya_token}"}
 
     # Admin is role 'admin'
+    client.cookies.clear()
     admin_login = client.post("/api/auth/login", json={"email": "admin@nutriverse.local", "password": "AdminPass123!"})
     admin_token = admin_login.json()["access_token"]
     admin_headers = {"Authorization": f"Bearer {admin_token}"}

@@ -15,6 +15,7 @@ def test_auth_and_roles():
     reg = client.post("/api/auth/register", json={"name": "Test Customer", "email": email, "password": "Password123!"})
     assert reg.status_code in (200, 409)
 
+    client.cookies.clear()
     login = client.post("/api/auth/login", json={"email": email, "password": "Password123!"})
     assert login.status_code == 200
     token = login.json()["access_token"]
@@ -214,6 +215,7 @@ def test_nutritionist_workflow():
     req_id = req_res.json()["id"]
 
     # Nutritionist logs in and reviews
+    client.cookies.clear()
     nutri_login = client.post("/api/auth/login", json={"email": "dr.priya@nutriverse.local", "password": "Nutritionist123!"})
     nutri_headers = {"Authorization": f"Bearer {nutri_login.json()['access_token']}"}
 
