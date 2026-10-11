@@ -3,6 +3,7 @@
 import React from "react";
 import { ArrowRight, Sparkles, Compass, CheckCircle2, ShieldCheck, Zap, Activity, Barcode, BookOpen, Layers, Heart, Scale } from "lucide-react";
 import Image from "next/image";
+import { formatPaise } from "@/lib/api";
 
 interface StorefrontViewProps {
   onNavigateTab: (tab: string) => void;
@@ -250,7 +251,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateTab, o
               <div className="space-y-2">
                 <span className="text-xs font-bold uppercase text-emerald-400">Basic Tier</span>
                 <h3 className="text-xl font-bold">Calin Basic Pack</h3>
-                <span className="text-2xl font-black text-white">₹699 <span className="text-xs text-gray-300 font-normal">/ week</span></span>
+                <span className="text-2xl font-black text-white">{formatPaise(69900)} <span className="text-xs text-gray-300 font-normal">/ week</span></span>
                 <p className="text-xs text-gray-300">
                   Staple legumes, rolled oats, and spinach for daily essential vitality.
                 </p>
@@ -271,7 +272,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateTab, o
               <div className="space-y-2">
                 <span className="text-xs font-bold uppercase text-purple-300">Minimal Plus Tier</span>
                 <h3 className="text-xl font-bold">Calin Minimal Plus</h3>
-                <span className="text-2xl font-black text-white">₹1,099 <span className="text-xs text-gray-300 font-normal">/ week</span></span>
+                <span className="text-2xl font-black text-white">{formatPaise(109900)} <span className="text-xs text-gray-300 font-normal">/ week</span></span>
                 <p className="text-xs text-gray-300">
                   Expanded baseline with blueberries, Greek yoghurt, and complete quinoa proteins.
                 </p>
@@ -289,7 +290,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateTab, o
               <div className="space-y-2">
                 <span className="text-xs font-bold uppercase text-amber-300">Premium Tier</span>
                 <h3 className="text-xl font-bold">Calin Premium Pack</h3>
-                <span className="text-2xl font-black text-white">₹1,699 <span className="text-xs text-gray-300 font-normal">/ week</span></span>
+                <span className="text-2xl font-black text-white">{formatPaise(169900)} <span className="text-xs text-gray-300 font-normal">/ week</span></span>
                 <p className="text-xs text-gray-300">
                   Maximum micronutrient density, cold-pressed oils, California almonds, and sulforaphane greens.
                 </p>

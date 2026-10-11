@@ -19,7 +19,7 @@ import {
   AlertCircle,
   X,
 } from "lucide-react";
-import { CalinPackTier, Food, api, money } from "../lib/api";
+import { CalinPackTier, Food, api, formatPaise, money } from "../lib/api";
 
 interface CalinPacksViewProps {
   onAddPackToCart: (tier: string, packName: string, customization: any) => void;
@@ -130,12 +130,13 @@ export default function CalinPacksView({
   // Handle Add to Cart
   const handleAddCustomizedToCart = () => {
     if (!activeTier) return;
-    const finalPrice = customizedData?.customized_price_inr || activeTier.base_price_inr;
+    const finalPrice = customizedData?.customized_price_paise ?? activeTier.base_price_paise;
     const customization = {
       tier: activeTier.tier,
       selected_foods: customizedData?.selected_foods || [],
       nutrition_summary: customizedData?.nutrition_summary || {},
       item_count: selectedFoodIds.length,
+      price_paise: finalPrice,
     };
     onAddPackToCart(activeTier.tier, activeTier.name, customization);
   };
@@ -258,7 +259,7 @@ export default function CalinPacksView({
                     color: isSelected ? "var(--green-200)" : "var(--green-600)",
                   }}
                 >
-                  {money(t.base_price_inr)}
+                  {formatPaise(t.base_price_paise)}
                 </span>
               </button>
             );
@@ -472,7 +473,7 @@ export default function CalinPacksView({
                   </span>
                   <div style={{ margin: "0.5rem 0 1.25rem" }}>
                     <strong style={{ fontSize: "2.5rem", color: "var(--forest-950)", fontWeight: 800 }}>
-                      {money(customizedData?.customized_price_inr || activeTier.base_price_inr)}
+                      {formatPaise(customizedData?.customized_price_paise ?? activeTier.base_price_paise)}
                     </strong>
                     <span style={{ fontSize: "0.95rem", color: "var(--muted)", marginLeft: "6px" }}>
                       / weekly delivery
@@ -568,7 +569,7 @@ export default function CalinPacksView({
                       value={subFrequency}
                       onChange={(e) => setSubFrequency(e.target.value as any)}
                     >
-                      <option value="weekly">Every Week (Recommended · ₹0 delivery fee)</option>
+                      <option value="weekly">Every Week (Recommended · {formatPaise(0)} delivery fee)</option>
                       <option value="bi_weekly">Every 2 Weeks (Bi-weekly)</option>
                       <option value="monthly">Monthly Recurring (4-week interval)</option>
                     </select>

@@ -13,7 +13,7 @@ import {
   Package,
 } from "lucide-react";
 import { useNutriverse } from "@/components/NutriverseProvider";
-import { api, money } from "@/lib/api";
+import { api, formatPaise, money } from "@/lib/api";
 
 export default function CartPageClient() {
   const router = useRouter();
@@ -97,12 +97,12 @@ export default function CartPageClient() {
                       </span>
                     </div>
                     <p className="text-xs text-gray-500">
-                      {money(item.unit_price_inr)} × {item.quantity} {item.unit || "unit"}
+                      {formatPaise(item.unit_price_paise)} × {item.quantity} {item.unit || "unit"}
                     </p>
                   </div>
 
                   <div className="flex items-center gap-4">
-                    <span className="font-black text-sm text-gray-900">{money(item.total_inr)}</span>
+                    <span className="font-black text-sm text-gray-900">{formatPaise(item.total_paise)}</span>
                     <button
                       type="button"
                       onClick={() => handleRemove(item.id)}
@@ -124,24 +124,24 @@ export default function CartPageClient() {
             <div className="space-y-2.5 text-xs text-gray-600">
               <div className="flex justify-between">
                 <span>Items Subtotal:</span>
-                <span className="font-bold text-gray-900">{money(cart.subtotal_inr)}</span>
+                <span className="font-bold text-gray-900">{formatPaise(cart.subtotal_paise)}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span>Delivery (Vijayawada):</span>
-                {cart.delivery_fee_inr === 0 ? (
+                {cart.delivery_fee_paise === 0 ? (
                   <span className="font-bold text-emerald-700">FREE</span>
                 ) : (
-                  <span className="font-bold text-gray-900">{money(cart.delivery_fee_inr)}</span>
+                  <span className="font-bold text-gray-900">{formatPaise(cart.delivery_fee_paise)}</span>
                 )}
               </div>
-              {cart.subtotal_inr < 800 && (
+              {cart.subtotal_paise < 80000 && (
                 <p className="text-[10px] text-emerald-800 bg-emerald-50/70 p-2 rounded-xl">
-                  Add {money(800 - cart.subtotal_inr)} more for free express 15–30 min delivery!
+                  Add {formatPaise(80000 - cart.subtotal_paise)} more for free express 15–30 min delivery!
                 </p>
               )}
               <div className="pt-3 border-t border-gray-100 flex justify-between text-sm">
                 <span className="font-black text-gray-900">Total Payable:</span>
-                <span className="font-black text-emerald-950">{money(cart.total_inr)}</span>
+                <span className="font-black text-emerald-950">{formatPaise(cart.total_paise)}</span>
               </div>
             </div>
 

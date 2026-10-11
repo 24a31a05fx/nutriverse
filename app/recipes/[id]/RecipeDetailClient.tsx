@@ -12,7 +12,7 @@ import {
   ChevronLeft,
   Sparkles,
 } from "lucide-react";
-import { Recipe, Food, money } from "@/lib/api";
+import { Recipe, Food, formatPaise, money } from "@/lib/api";
 import { useNutriverse } from "@/components/NutriverseProvider";
 
 export default function RecipeDetailClient({ recipe }: { recipe: Recipe }) {
@@ -115,7 +115,7 @@ export default function RecipeDetailClient({ recipe }: { recipe: Recipe }) {
                         href={`/food/${inStore.id}`}
                         className="text-[10px] text-emerald-700 hover:underline font-semibold block"
                       >
-                        Available in store ({money(inStore.price_inr)})
+                        Available in store ({formatPaise(inStore.price_paise)})
                       </Link>
                     )}
                   </div>
@@ -161,7 +161,7 @@ export default function RecipeDetailClient({ recipe }: { recipe: Recipe }) {
               <Sparkles className="w-3.5 h-3.5 text-emerald-700" /> Bioavailability Principle
             </span>
             <p className="text-[11px] text-emerald-800 leading-relaxed">
-              This recipe applies low-temperature steaming and water-soluble soaking to retain cellular antioxidants and reduce anti-nutrients (phytates).
+              This recipe applies low-temperature steaming and water-soluble soaking to retain natural antioxidants and reduce anti-nutrients (phytates).
             </p>
           </div>
         </div>

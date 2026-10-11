@@ -13,7 +13,7 @@ import {
   Zap,
   Info,
 } from "lucide-react";
-import { Food, api, money } from "../lib/api";
+import { Food, api, formatPaise, money } from "../lib/api";
 import FoodDetailModal from "./FoodDetailModal";
 
 interface FoodExplorerViewProps {
@@ -380,7 +380,7 @@ export default function FoodExplorerView({ onAddToCart }: FoodExplorerViewProps)
                   >
                     <div>
                       <strong style={{ fontSize: "1.2rem", color: "var(--forest-900)" }}>
-                        {money(food.price_inr)}
+                        {formatPaise(food.price_paise)}
                       </strong>
                       <span style={{ fontSize: "0.75rem", color: "var(--muted)", marginLeft: "4px" }}>
                         /{food.unit}

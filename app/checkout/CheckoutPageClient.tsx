@@ -15,7 +15,7 @@ import {
   Lock,
 } from "lucide-react";
 import { useNutriverse } from "@/components/NutriverseProvider";
-import { api, money } from "@/lib/api";
+import { api, formatPaise, money } from "@/lib/api";
 
 export default function CheckoutPageClient() {
   const router = useRouter();
@@ -83,12 +83,15 @@ export default function CheckoutPageClient() {
     try {
       const payload = {
         address: {
-          full_name: fullName,
-          phone,
+          label: "Home",
+          line1: street,
           street,
           city,
           state,
+          postal_code: pincode,
           pincode,
+          full_name: fullName,
+          phone,
         },
         delivery_notes: notes,
       };
@@ -225,7 +228,7 @@ export default function CheckoutPageClient() {
                   <span className="text-gray-700">
                     {item.name} × {item.quantity}
                   </span>
-                  <span className="font-bold text-gray-900">{money(item.total_inr)}</span>
+                  <span className="font-bold text-gray-900">{formatPaise(item.total_paise)}</span>
                 </div>
               ))}
             </div>
@@ -233,17 +236,17 @@ export default function CheckoutPageClient() {
             <div className="pt-2 border-t border-gray-100 space-y-2 text-xs text-gray-600">
               <div className="flex justify-between">
                 <span>Subtotal:</span>
-                <span className="font-bold text-gray-900">{money(cart.subtotal_inr)}</span>
+                <span className="font-bold text-gray-900">{formatPaise(cart.subtotal_paise)}</span>
               </div>
               <div className="flex justify-between">
                 <span>Delivery:</span>
                 <span className="font-bold text-emerald-700">
-                  {cart.delivery_fee_inr === 0 ? "FREE" : money(cart.delivery_fee_inr)}
+                  {cart.delivery_fee_paise === 0 ? "FREE" : formatPaise(cart.delivery_fee_paise)}
                 </span>
               </div>
               <div className="flex justify-between text-sm pt-2 border-t border-gray-100">
                 <span className="font-black text-gray-900">Total Payable:</span>
-                <span className="font-black text-emerald-950">{money(cart.total_inr)}</span>
+                <span className="font-black text-emerald-950">{formatPaise(cart.total_paise)}</span>
               </div>
             </div>
           </div>
@@ -262,7 +265,7 @@ export default function CheckoutPageClient() {
               disabled={submitting}
               className="w-full py-3.5 px-6 rounded-2xl bg-emerald-800 hover:bg-emerald-900 disabled:opacity-50 text-white text-xs font-bold shadow-lg transition flex items-center justify-center gap-2"
             >
-              {submitting ? "Placing Order..." : `Confirm & Place Order (${money(cart.total_inr)})`}
+              {submitting ? "Placing Order..." : `Confirm & Place Order (${formatPaise(cart.total_paise)})`}
             </button>
           </div>
         </div>

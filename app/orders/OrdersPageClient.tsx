@@ -12,7 +12,7 @@ import {
   Lock,
 } from "lucide-react";
 import { useNutriverse } from "@/components/NutriverseProvider";
-import { OrderModel, api, money } from "@/lib/api";
+import { OrderModel, api, formatPaise, money } from "@/lib/api";
 
 export default function OrdersPageClient() {
   const { currentUser, setAuthModalOpen } = useNutriverse();
@@ -130,7 +130,7 @@ export default function OrdersPageClient() {
                 </div>
 
                 <div className="flex items-center gap-4 justify-between sm:justify-end">
-                  <span className="text-sm font-black text-emerald-950">{money(o.total_inr)}</span>
+                  <span className="text-sm font-black text-emerald-950">{formatPaise(o.total_paise)}</span>
                   <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-emerald-700 transition" />
                 </div>
               </div>

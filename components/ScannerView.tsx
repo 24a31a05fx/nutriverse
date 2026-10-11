@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { Camera, Search, Barcode, CheckCircle, AlertCircle, ArrowRight, Sparkles, RefreshCw } from "lucide-react";
-import { Food, api } from "@/lib/api";
+import { Food, api, formatPaise } from "@/lib/api";
 
 interface ScannerViewProps {
   onSelectFood: (food: Food) => void;
@@ -348,7 +348,7 @@ export const ScannerView: React.FC<ScannerViewProps> = ({ onSelectFood, onAddToC
                   onClick={() => onAddToCart(scannedFood)}
                   className="flex-1 py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl transition text-center flex items-center justify-center gap-1"
                 >
-                  Add ₹{scannedFood.price_inr} to Bag
+                  Add {formatPaise(scannedFood.price_paise)} to Bag
                 </button>
               </div>
             )}

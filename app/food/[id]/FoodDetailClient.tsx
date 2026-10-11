@@ -14,7 +14,7 @@ import {
   Info,
   CheckCircle2,
 } from "lucide-react";
-import { Food, money } from "@/lib/api";
+import { Food, formatPaise, money } from "@/lib/api";
 import { useNutriverse } from "@/components/NutriverseProvider";
 
 export default function FoodDetailClient({ food }: { food: Food }) {
@@ -84,7 +84,7 @@ export default function FoodDetailClient({ food }: { food: Food }) {
           <div className="pt-4 border-t border-gray-100 space-y-4">
             <div className="flex items-center justify-between">
               <span className="text-xs text-gray-500 font-medium">Price per unit</span>
-              <span className="text-2xl font-black text-emerald-900">{money(food.price_inr)}</span>
+              <span className="text-2xl font-black text-emerald-900">{formatPaise(food.price_paise)}</span>
             </div>
 
             <div className="flex items-center gap-3">
@@ -117,7 +117,7 @@ export default function FoodDetailClient({ food }: { food: Food }) {
                   </>
                 ) : (
                   <>
-                    <ShoppingBag className="w-4 h-4" /> Add to Bag ({money(food.price_inr * qty)})
+                    <ShoppingBag className="w-4 h-4" /> Add to Bag ({formatPaise(food.price_paise * qty)})
                   </>
                 )}
               </button>
@@ -174,7 +174,7 @@ export default function FoodDetailClient({ food }: { food: Food }) {
               <div className="p-3 rounded-2xl bg-blue-50/70 border border-blue-200/70 text-center">
                 <span className="text-[10px] uppercase font-bold text-blue-800 block">Carbs</span>
                 <span className="text-lg font-black text-blue-950 block">{food.carbs_g}g</span>
-                <span className="text-[9px] text-blue-700">cellular fuel</span>
+                <span className="text-[9px] text-blue-700">active energy</span>
               </div>
               <div className="p-3 rounded-2xl bg-amber-50/70 border border-amber-200/70 text-center">
                 <span className="text-[10px] uppercase font-bold text-amber-800 block">Healthy Fat</span>

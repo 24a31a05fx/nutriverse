@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { X, Trash2, ShoppingBag, ArrowRight, ShieldCheck, CheckCircle2, Truck, AlertCircle, RefreshCw } from "lucide-react";
-import { CartResponse, CartItemModel, api, money } from "@/lib/api";
+import { CartResponse, CartItemModel, api, formatPaise, money } from "@/lib/api";
 import { useNutriverse } from "@/components/NutriverseProvider";
 
 interface CartDrawerProps {
@@ -131,7 +131,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   </div>
                   <div className="flex justify-between text-gray-600">
                     <span>Total Amount:</span>
-                    <span className="font-bold text-gray-900">{money(orderConfirmation.total_inr)}</span>
+                    <span className="font-bold text-gray-900">{formatPaise(orderConfirmation.total_paise)}</span>
                   </div>
                   <div className="flex justify-between text-gray-600">
                     <span>Delivery Address:</span>
@@ -276,7 +276,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                       <RefreshCw className="w-4 h-4 animate-spin" /> Persisting Order...
                     </>
                   ) : (
-                    <>Confirm & Place Demo Order ({cart ? money(cart.total_inr) : "—"})</>
+                    <>Confirm & Place Demo Order ({cart ? formatPaise(cart.total_paise) : "—"})</>
                   )}
                 </button>
               </form>
@@ -318,7 +318,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                           </div>
                           <h4 className="text-xs font-bold text-gray-900">{item.name}</h4>
                           <p className="text-[11px] text-gray-600">
-                            Qty: {item.quantity} × {money(item.unit_price_inr)}
+                            Qty: {item.quantity} × {formatPaise(item.unit_price_paise)}
                           </p>
                           {item.customization && item.customization.tier && (
                             <p className="text-[10px] text-purple-700 italic">
@@ -329,7 +329,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
                         <div className="text-right space-y-2">
                           <span className="text-xs font-bold text-gray-900 block">
-                            {money(item.total_inr)}
+                            {formatPaise(item.total_paise)}
                           </span>
                           <button
                             type="button"
@@ -354,19 +354,19 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               <div className="space-y-1.5 text-xs">
                 <div className="flex justify-between text-gray-600">
                   <span>Bag Subtotal:</span>
-                  <span className="font-semibold text-gray-900">{money(cart.subtotal_inr)}</span>
+                  <span className="font-semibold text-gray-900">{formatPaise(cart.subtotal_paise)}</span>
                 </div>
                 <div className="flex justify-between text-gray-600">
                   <span className="flex items-center gap-1">
                     <Truck className="w-3.5 h-3.5" /> Delivery:
                   </span>
                   <span className="font-semibold text-gray-900">
-                    {cart.delivery_fee_inr === 0 ? "FREE" : money(cart.delivery_fee_inr)}
+                    {cart.delivery_fee_paise === 0 ? "FREE" : formatPaise(cart.delivery_fee_paise)}
                   </span>
                 </div>
                 <div className="pt-2 border-t border-gray-200 flex justify-between text-sm font-bold text-gray-900">
                   <span>Total Payable:</span>
-                  <span className="text-emerald-700">{money(cart.total_inr)}</span>
+                  <span className="text-emerald-700">{formatPaise(cart.total_paise)}</span>
                 </div>
               </div>
 

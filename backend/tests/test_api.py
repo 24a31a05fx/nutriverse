@@ -1,5 +1,5 @@
 from fastapi.testclient import TestClient
-from backend.app.main import app
+from backend.app.main import Food, SessionLocal, app
 
 client = TestClient(app)
 
@@ -15,6 +15,7 @@ def test_auth_and_roles():
     reg = client.post("/api/auth/register", json={"name": "Test Customer", "email": email, "password": "Password123!"})
     assert reg.status_code in (200, 409)
 
+    client.cookies.clear()
     login = client.post("/api/auth/login", json={"email": email, "password": "Password123!"})
     assert login.status_code == 200
     token = login.json()["access_token"]
@@ -109,7 +110,7 @@ def test_calin_packs_and_customization():
     packs = client.get("/api/packs").json()
     assert len(packs) == 3
     basic_pack = next(p for p in packs if p["tier"] == "basic")
-    assert basic_pack["base_price_inr"] == 699
+    assert basic_pack["base_price_paise"] == 69900
 
     # Customization endpoint
     foods = client.get("/api/foods").json()
@@ -117,7 +118,7 @@ def test_calin_packs_and_customization():
     cust_res = client.post("/api/packs/customize", json={"tier": "basic", "selected_food_ids": food_ids})
     assert cust_res.status_code == 200
     assert cust_res.json()["item_count"] == 4
-    assert cust_res.json()["customized_price_inr"] > 0
+    assert cust_res.json()["customized_price_paise"] > 0
 
 
 def test_cart_and_demo_checkout():
@@ -131,7 +132,14 @@ def test_cart_and_demo_checkout():
         client.delete(f"/api/cart/items/{item['id']}", headers=headers)
 
     foods = client.get("/api/foods").json()
-    food_id = foods[0]["id"]
+    food = next((f for f in foods if f.get("stock_qty", 0) >= 5), foods[0])
+    food_id = food["id"]
+
+    with SessionLocal() as session:
+        f_record = session.get(Food, food_id)
+        if f_record and f_record.stock_qty < 10:
+            f_record.stock_qty = 50
+            session.commit()
 
     # Add food to cart
     add_food = client.post("/api/cart/items", headers=headers, json={"item_type": "food", "food_id": food_id, "quantity": 2})
@@ -144,7 +152,7 @@ def test_cart_and_demo_checkout():
     # View Cart
     cart = client.get("/api/cart", headers=headers).json()
     assert len(cart["items"]) == 2
-    assert cart["total_inr"] > 0
+    assert cart["total_paise"] > 0
 
     # Checkout Demo Order
     checkout_payload = {
@@ -207,6 +215,7 @@ def test_nutritionist_workflow():
     req_id = req_res.json()["id"]
 
     # Nutritionist logs in and reviews
+    client.cookies.clear()
     nutri_login = client.post("/api/auth/login", json={"email": "dr.priya@nutriverse.local", "password": "Nutritionist123!"})
     nutri_headers = {"Authorization": f"Bearer {nutri_login.json()['access_token']}"}
 

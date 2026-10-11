@@ -24,7 +24,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   const [activityLevel, setActivityLevel] = useState<number>(1.375);
   const [foodPreferences, setFoodPreferences] = useState("Vegetarian & Plant-Forward");
   const [allergies, setAllergies] = useState("None");
-  const [budgetInr, setBudgetInr] = useState<number>(1500);
+  const [budgetPaise, setBudgetPaise] = useState<number>(150000);
   const [goal, setGoal] = useState("Balanced Nutrition & Micronutrient Completeness");
   const [consentGiven, setConsentGiven] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -39,7 +39,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
       setActivityLevel(initialProfile.activity_level || 1.375);
       if (initialProfile.food_preferences) setFoodPreferences(initialProfile.food_preferences);
       if (initialProfile.allergies) setAllergies(initialProfile.allergies);
-      if (initialProfile.budget_inr) setBudgetInr(initialProfile.budget_inr);
+      if (initialProfile.budget_paise) setBudgetPaise(initialProfile.budget_paise);
       if (initialProfile.goal) setGoal(initialProfile.goal);
     }
   }, [initialProfile]);
@@ -78,7 +78,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
         activity_level: Number(activityLevel),
         food_preferences: foodPreferences,
         allergies: allergies,
-        budget_inr: Number(budgetInr),
+        budget_paise: Number(budgetPaise),
         goal: goal,
       };
 
@@ -256,7 +256,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 <span className="text-[11px] text-gray-600 block">Basal Metabolic Rate (BMR)</span>
                 <span className="text-xl font-extrabold text-gray-900">{bmr} <span className="text-xs font-normal text-gray-600">kcal/day</span></span>
                 <p className="text-[10px] text-gray-600 mt-1">
-                  Baseline energy spent at complete rest for vital cellular and organ functions.
+                  Baseline energy spent at complete rest for vital metabolic and organ functions.
                 </p>
               </div>
 
@@ -316,8 +316,8 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                   min={500}
                   max={10000}
                   step={100}
-                  value={budgetInr}
-                  onChange={(e) => setBudgetInr(Number(e.target.value))}
+                  value={Math.round(budgetPaise / 100)}
+                  onChange={(e) => setBudgetPaise(Number(e.target.value) * 100)}
                   className="w-full px-3.5 py-2 text-xs rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                 />
               </div>

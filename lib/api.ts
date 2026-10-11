@@ -45,7 +45,7 @@ export interface NutritionProfile {
   calorie_target: number;
   food_preferences?: string;
   allergies?: string;
-  budget_inr?: number;
+  budget_paise?: number;
   goal?: string;
   calculation_version?: string;
 }
@@ -57,7 +57,8 @@ export interface Food {
   category: string;
   nutrition_tags: string; // JSON array string
   description: string;
-  price_inr: number;
+  price_paise: number;
+  gst_rate_percent?: number | null;
   unit: string;
   serving_size: string;
   stock_qty: number;
@@ -94,7 +95,7 @@ export interface CalinPackTier {
   id: string;
   tier: "basic" | "minimal_plus" | "premium";
   name: string;
-  base_price_inr: number;
+  base_price_paise: number;
   description: string;
   target_audience: string;
   max_substitutions: number;
@@ -110,27 +111,27 @@ export interface CartItemModel {
   name: string;
   category?: string;
   unit?: string;
-  unit_price_inr: number;
+  unit_price_paise: number;
   quantity: number;
-  total_inr: number;
+  total_paise: number;
   customization?: Record<string, any>;
   stock_available?: boolean;
 }
 
 export interface CartResponse {
   items: CartItemModel[];
-  subtotal_inr: number;
-  delivery_fee_inr: number;
-  total_inr: number;
+  subtotal_paise: number;
+  delivery_fee_paise: number;
+  total_paise: number;
 }
 
 export interface OrderModel {
   id: string;
   user_id?: string;
   status: "placed" | "confirmed" | "preparing" | "out_for_delivery" | "delivered" | "cancelled";
-  subtotal_inr: number;
-  delivery_fee_inr: number;
-  total_inr: number;
+  subtotal_paise: number;
+  delivery_fee_paise: number;
+  total_paise: number;
   items: Array<any>;
   delivery_address: Record<string, any>;
   demo_payment: boolean;
@@ -144,7 +145,7 @@ export interface SubscriptionModel {
   pack_name: string;
   frequency: "weekly" | "bi_weekly" | "monthly";
   status: "active" | "paused" | "cancelled";
-  price_per_delivery_inr: number;
+  price_per_delivery_paise: number;
   next_delivery_date: string;
   created_at: string;
 }
@@ -170,7 +171,7 @@ export interface AdminStats {
     pending_nutritionist_reviews: number;
   };
   low_stock_alerts: Array<{ name: string; stock: number }>;
-  recent_orders: Array<{ id: string; status: string; total_inr: number; created_at: string }>;
+  recent_orders: Array<{ id: string; status: string; total_paise: number; created_at: string }>;
 }
 
 interface ApiOptions extends RequestInit {
@@ -268,5 +269,25 @@ export async function getAuthConfig(): Promise<AuthConfig> {
   }
 }
 
-export const money = (value: number) => `₹${Math.round(value).toLocaleString("en-IN")}`;
+export function assertPaise(paise: unknown, label = "price"): number {
+  if (typeof paise !== "number" || isNaN(paise) || !Number.isFinite(paise)) {
+    throw new Error(`[PriceError] Missing or invalid ${label}: received ${String(paise)}`);
+  }
+  return paise;
+}
+
+export function formatPaise(paise: number): string {
+  if (typeof paise !== "number" || isNaN(paise) || !Number.isFinite(paise)) {
+    return "[Price Error]";
+  }
+  const rupees = paise / 100;
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: paise % 100 === 0 ? 0 : 2,
+    minimumFractionDigits: paise % 100 === 0 ? 0 : 2,
+  }).format(rupees);
+}
+
+export const money = formatPaise;
 
