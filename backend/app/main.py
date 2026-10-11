@@ -169,7 +169,7 @@ class Food(Base):
     __tablename__ = "foods"
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
     name: Mapped[str] = mapped_column(String(120), index=True)
-    barcode: Mapped[Optional[str]] = mapped_column(String(32), unique=True, nullable=True, index=True)
+    barcode: Mapped[Optional[str]] = mapped_column(String(32), unique=False, nullable=True, index=True)
     category: Mapped[str] = mapped_column(String(80), index=True)  # Conventional category (Legumes, Greens, etc.)
     nutrition_tags: Mapped[str] = mapped_column(Text, default="[]")  # JSON array of tags: protein_rich, fiber_rich, etc.
     description: Mapped[str] = mapped_column(Text)
@@ -310,8 +310,19 @@ class RefreshToken(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
-# Create all tables in database
-Base.metadata.create_all(engine)
+def run_migrations() -> None:
+    """Run alembic upgrade head programmatically on startup."""
+    import os
+    from alembic import command
+    from alembic.config import Config
+
+    root_ini = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "alembic.ini"))
+    if not os.path.exists(root_ini):
+        root_ini = "alembic.ini"
+    alembic_cfg = Config(root_ini)
+    alembic_cfg.set_main_option("sqlalchemy.url", settings.database_url)
+    command.upgrade(alembic_cfg, "head")
+
 
 
 def db() -> Generator[Session, None, None]:
@@ -1154,6 +1165,7 @@ def seed_initial_data() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     validate_secret_safety(settings)
+    run_migrations()
     seed_initial_data()
     yield
 

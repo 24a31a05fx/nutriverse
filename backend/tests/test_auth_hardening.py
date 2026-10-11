@@ -567,3 +567,38 @@ def test_guest_cart_merge_quantities_stock_and_server_prices():
     assert pack_cart_item["unit_price_inr"] != 5
     assert pack_cart_item["quantity"] == 1
 
+
+def test_fresh_database_alembic_upgrade_head():
+    """Verify that a fresh empty database upgrades cleanly to head via Alembic and tables exist."""
+    import tempfile
+    import os
+    from alembic import command
+    from alembic.config import Config
+    from sqlalchemy import create_engine, inspect
+
+    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
+        tmp_db_path = tmp.name
+
+    try:
+        tmp_url = f"sqlite:///{tmp_db_path}"
+        cfg = Config("alembic.ini")
+        cfg.set_main_option("sqlalchemy.url", tmp_url)
+        command.upgrade(cfg, "head")
+
+        eng = create_engine(tmp_url)
+        insp = inspect(eng)
+        table_names = insp.get_table_names()
+        assert "users" in table_names
+        assert "foods" in table_names
+        assert "orders" in table_names
+        assert "refresh_tokens" in table_names
+        assert "alembic_version" in table_names
+        eng.dispose()
+    finally:
+        try:
+            if os.path.exists(tmp_db_path):
+                os.remove(tmp_db_path)
+        except Exception:
+            pass
+
+

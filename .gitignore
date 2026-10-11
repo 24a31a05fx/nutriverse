@@ -14,3 +14,4 @@ playwright-report/
 blob-report/
 *.tsbuildinfo
 *.db
+*.bak
