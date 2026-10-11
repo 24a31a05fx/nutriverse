@@ -172,9 +172,14 @@ export const AdminPortalView: React.FC<AdminPortalProps> = ({ user, onRefreshGlo
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div>
-                      <span className="text-xs font-bold text-gray-900">
-                        Order #{order.id.slice(0, 8)}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-gray-900">
+                          Order #{order.id.slice(0, 8)}
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                          Demo order only
+                        </span>
+                      </div>
                       <p className="text-[10px] text-gray-600">
                         Placed {new Date(order.created_at).toLocaleDateString("en-IN", {
                           day: "numeric",
@@ -193,6 +198,10 @@ export const AdminPortalView: React.FC<AdminPortalProps> = ({ user, onRefreshGlo
                         onChange={(e) => handleUpdateOrderStatus(order.id, e.target.value)}
                         className="px-3 py-1.5 text-xs font-bold rounded-xl border border-gray-200 bg-white text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                       >
+                        <option value="placed_demo">Placed (Demo)</option>
+                        <option value="preparing_demo">Preparing (Demo)</option>
+                        <option value="completed_demo">Completed (Demo)</option>
+                        <option value="cancelled_demo">Cancelled (Demo)</option>
                         <option value="placed">Placed</option>
                         <option value="confirmed">Confirmed</option>
                         <option value="preparing">Preparing</option>

@@ -101,19 +101,28 @@ export const AssistantDrawer: React.FC<AssistantDrawerProps> = ({ isOpen, onClos
             </button>
           </div>
 
-          {/* Quick Prompts Bar */}
-          <div className="p-3 bg-gray-50 border-b border-gray-100 overflow-x-auto whitespace-nowrap space-x-2">
-            {quickPrompts.map((q, idx) => (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => handleSend(q)}
-                className="inline-block px-2.5 py-1 text-[11px] bg-white border border-gray-200 hover:border-emerald-500 hover:text-emerald-800 rounded-lg text-gray-700 transition"
-              >
-                {q}
-              </button>
-            ))}
-          </div>
+          {/* Quick Prompts Bar or Coming Soon Notice */}
+          {!process.env.NEXT_PUBLIC_AI_PROVIDER_KEY ? (
+            <div className="p-4 bg-[#F6F1E4] border-b border-[#DDD3B8] text-center space-y-1">
+              <span className="text-xs font-bold text-[#232A16] block">Nutrition assistant coming soon</span>
+              <p className="text-[11px] text-[#6B7A45] leading-relaxed">
+                Fact-checked AI guidance will launch once provider keys are configured. Catalog nutrition and Calin Packs remain active.
+              </p>
+            </div>
+          ) : (
+            <div className="p-3 bg-gray-50 border-b border-gray-100 overflow-x-auto whitespace-nowrap space-x-2">
+              {quickPrompts.map((q, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => handleSend(q)}
+                  className="inline-block px-2.5 py-1 text-[11px] bg-white border border-gray-200 hover:border-emerald-500 hover:text-emerald-800 rounded-lg text-gray-700 transition"
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* Chat Messages */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50/30">
@@ -176,23 +185,30 @@ export const AssistantDrawer: React.FC<AssistantDrawerProps> = ({ isOpen, onClos
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                handleSend();
+                if (process.env.NEXT_PUBLIC_AI_PROVIDER_KEY) {
+                  handleSend();
+                }
               }}
               className="flex gap-2"
             >
               <input
                 type="text"
-                placeholder="Ask about nutrients, recipes, or Calin Packs..."
+                placeholder={
+                  !process.env.NEXT_PUBLIC_AI_PROVIDER_KEY
+                    ? "Nutrition assistant coming soon..."
+                    : "Ask about nutrients, recipes, or Calin Packs..."
+                }
+                disabled={!process.env.NEXT_PUBLIC_AI_PROVIDER_KEY || loading}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                className="flex-1 px-3.5 py-2.5 text-xs rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                className="flex-1 px-3.5 py-2.5 text-xs rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
               />
               <button
                 type="submit"
-                disabled={loading || !input.trim()}
-                className="p-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl transition"
+                disabled={!process.env.NEXT_PUBLIC_AI_PROVIDER_KEY || loading || !input.trim()}
+                className="p-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl transition text-xs font-semibold px-4"
               >
-                <Send className="w-4 h-4" />
+                {!process.env.NEXT_PUBLIC_AI_PROVIDER_KEY ? "Coming soon" : <Send className="w-4 h-4" />}
               </button>
             </form>
           </div>

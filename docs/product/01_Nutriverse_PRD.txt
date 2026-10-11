@@ -1,0 +1,225 @@
+1. Product Requirements Document (PRD)
+
+Nutriverse Web Application • MVP Specification
+
+Prepared from the supplied Nutriverse Venture Pitch & Problem Statement, Scientific Problem Research Summary, and Nutrition-First Retail Business Concept.
+
+1. Product Vision
+
+Nutriverse is a nutrition-first digital platform designed to make nutrition easier to understand, food easier to choose, and personalized Calin Packs easier to purchase. The MVP connects a user's nutrition profile to food discovery, nutrition information, recipes, a scanner demo, AI guidance, Calin Pack generation, cart/checkout, progress tracking, and basic administration.
+
+2. Problem
+
+The supplied concept identifies a gap between being able to buy food and knowing which foods and nutrients are appropriate for an individual's circumstances. Nutrition labels can be difficult to understand, nutritional needs vary, and existing grocery experiences mainly optimize product purchasing rather than nutrition understanding.
+
+3. MVP Goals
+
+Create a complete end-to-end Nutriverse user journey.
+
+Collect onboarding information and calculate an estimated daily calorie requirement.
+
+Present a personalized nutrition dashboard.
+
+Enable nutrition-first food discovery and detailed food information.
+
+Generate and customize Basic, Minimal Plus, and Premium Calin Packs.
+
+Provide recipes, preparation guidance, and a scanner demonstration.
+
+Provide an AI assistant grounded in the application's nutrition and food data.
+
+Support cart and clearly labeled demo checkout without real payment processing.
+
+Track nutrition/progress and provide a basic admin dashboard.
+
+Keep the architecture modular for later real payments, subscriptions, delivery, nutritionist review, and physical-store integration.
+
+4. Target Users
+
+User
+
+Needs
+
+MVP Features
+
+New customer
+
+Understand personal nutrition and discover foods
+
+Onboarding, profile, dashboard, food explorer
+
+Calin Pack customer
+
+Get a convenient nutrition-oriented bundle
+
+Pack generation, customization, cart
+
+Food explorer
+
+Understand a product and how to use it
+
+Nutrition cards, details, recipes, scanner demo
+
+Admin
+
+Operate the digital catalog and orders
+
+Admin views, product/recipe/pack/order management
+
+5. Functional Requirements
+
+ID
+
+Requirement
+
+Priority
+
+FR-01
+
+Landing page and clear Nutriverse value proposition
+
+Must
+
+FR-02
+
+User registration/login or demo profile entry
+
+Must
+
+FR-03
+
+Nutrition onboarding: age, sex, height, weight, activity level
+
+Must
+
+FR-04
+
+Estimated calorie calculation using Mifflin–St Jeor plus activity factor
+
+Must
+
+FR-05
+
+Personalized dashboard
+
+Must
+
+FR-06
+
+Food search/filter and nutrition-first categories
+
+Must
+
+FR-07
+
+Food detail page with nutrition data
+
+Must
+
+FR-08
+
+Recipe and preparation information
+
+Must
+
+FR-09
+
+Barcode/scanner demo flow
+
+Must
+
+FR-10
+
+AI nutrition assistant grounded in application data
+
+Must
+
+FR-11
+
+Calin Pack generation by tier
+
+Must
+
+FR-12
+
+Calin Pack customization/substitution
+
+Must
+
+FR-13
+
+Cart and demo checkout
+
+Must
+
+FR-14
+
+Order confirmation and order history
+
+Must
+
+FR-15
+
+Progress tracking
+
+Must
+
+FR-16
+
+Basic admin views
+
+Must
+
+6. Calin Pack Requirements
+
+Calin Packs are the differentiating product. The supplied concept defines three tiers: Basic, Minimal Plus, and Premium. The first implementation should use configurable rules and a curated food catalog rather than hard-coding packs into frontend screens.
+
+7. Non-Functional Requirements
+
+Responsive on desktop, tablet, and mobile.
+
+Fast initial dashboard and food-list rendering.
+
+Accessible labels, readable nutrition values, keyboard-friendly controls.
+
+Server-side validation for profile, cart, and order inputs.
+
+Role-based access for admin functions.
+
+Do not expose secrets or API keys in frontend code.
+
+Use explicit consent and privacy controls for health-profile information.
+
+AI output must be presented as general guidance; it must not be presented as diagnosis or medical treatment.
+
+8. Out of Scope for MVP
+
+Real payment capture
+
+Production subscription billing
+
+Real delivery/logistics integration
+
+Full physical-store inventory/POS
+
+Automated medical-condition treatment recommendations
+
+Large-scale nutritionist marketplace
+
+Nationwide retail rollout
+
+9. Success Criteria
+
+A new user can complete onboarding and reach a calculated profile.
+
+A user can find a food, inspect nutrition, and view a recipe.
+
+A user can generate, customize, and add a Calin Pack to the cart.
+
+A demo order can be placed and viewed by admin.
+
+A scanner demo resolves a seeded product.
+
+Admin can manage the core catalog entities.
+
+All major flows work without dead-end placeholder screens.

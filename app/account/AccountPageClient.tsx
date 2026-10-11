@@ -18,6 +18,9 @@ export default function AccountPageClient() {
   useEffect(() => {
     if (sessionReady && !currentUser) {
       setAuthModalOpen(true);
+      if (typeof window !== "undefined") {
+        window.history.replaceState(null, "", "/");
+      }
       router.replace("/");
     }
   }, [currentUser, router, sessionReady, setAuthModalOpen]);

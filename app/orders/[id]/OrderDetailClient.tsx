@@ -13,6 +13,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { OrderModel, api, formatPaise, money } from "@/lib/api";
+import { OrderTimeline } from "@/components/design-system";
 
 const statusSteps = [
   { id: "placed", label: "Order Placed" },
@@ -26,6 +27,8 @@ export default function OrderDetailClient({ orderId }: { orderId: string }) {
   const [order, setOrder] = useState<OrderModel | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchOrder = async () => {
@@ -70,6 +73,24 @@ export default function OrderDetailClient({ orderId }: { orderId: string }) {
   const currentStepIdx = statusSteps.findIndex((s) => s.id === order.status);
   const address = order.delivery_address || {};
 
+  const handleCancelDemoOrder = async () => {
+    if (!order) return;
+    if (!confirm("Are you sure you want to cancel this demo order?")) return;
+    setCancelling(true);
+    setCancelError(null);
+    try {
+      const res = await api<{ id: string; status: string; message: string }>(
+        `/orders/${order.id}/cancel`,
+        { method: "POST" }
+      );
+      setOrder({ ...order, status: res.status });
+    } catch (err: any) {
+      setCancelError(err?.message || "Failed to cancel demo order");
+    } finally {
+      setCancelling(false);
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto px-4 py-8 space-y-8 animate-in fade-in">
       <div>
@@ -79,57 +100,50 @@ export default function OrderDetailClient({ orderId }: { orderId: string }) {
         >
           <ChevronLeft className="w-4 h-4" /> Back to All Orders
         </Link>
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-black text-gray-900">
-              Order #{order.id.slice(0, 8)}
-            </h1>
-            <p className="text-xs text-gray-500">
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-black text-gray-900">
+                Order #{order.id.slice(0, 8)}
+              </h1>
+              <span className="px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-md bg-[#C1872B]/10 text-[#C1872B] border border-[#C1872B]/30">
+                Demo order only
+              </span>
+            </div>
+            <p className="text-xs text-gray-500 mt-0.5">
               Placed on {new Date(order.created_at).toLocaleString("en-IN", {
                 dateStyle: "medium",
                 timeStyle: "short",
               })}
             </p>
           </div>
-          <span className="self-start sm:self-auto px-3.5 py-1.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 uppercase tracking-wider">
-            {order.status.replace(/_/g, " ")}
-          </span>
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <span className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 uppercase tracking-wider">
+              {order.status.replace(/_/g, " ")}
+            </span>
+            {!["cancelled", "cancelled_demo"].includes(order.status) && (
+              <button
+                type="button"
+                disabled={cancelling}
+                onClick={handleCancelDemoOrder}
+                className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 transition disabled:opacity-50"
+              >
+                {cancelling ? "Cancelling..." : "Cancel demo order"}
+              </button>
+            )}
+          </div>
         </div>
+        {cancelError && (
+          <p className="text-xs text-red-600 mt-2 font-medium">{cancelError}</p>
+        )}
       </div>
 
-      {/* Progress Pipeline */}
-      <div className="bg-white p-6 sm:p-8 rounded-3xl border border-gray-100 shadow-sm space-y-6">
-        <h2 className="text-xs font-bold uppercase tracking-wider text-gray-500 flex items-center gap-2">
-          <Truck className="w-4 h-4 text-emerald-600" /> Fulfillment Timeline (Vijayawada Express 15–30m)
-        </h2>
-
-        <div className="grid grid-cols-5 gap-2 text-center">
-          {statusSteps.map((step, idx) => {
-            const isCompleted = idx <= currentStepIdx;
-            const isCurrent = idx === currentStepIdx;
-            return (
-              <div key={step.id} className="space-y-2">
-                <div
-                  className={`w-8 h-8 mx-auto rounded-full flex items-center justify-center text-xs font-bold transition shadow-sm ${
-                    isCompleted
-                      ? "bg-emerald-800 text-white"
-                      : "bg-gray-100 text-gray-400"
-                  } ${isCurrent ? "ring-4 ring-emerald-200" : ""}`}
-                >
-                  {isCompleted ? <CheckCircle2 className="w-4 h-4" /> : idx + 1}
-                </div>
-                <span
-                  className={`text-[10px] sm:text-xs block font-bold ${
-                    isCompleted ? "text-emerald-950" : "text-gray-400"
-                  }`}
-                >
-                  {step.label}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
+      {/* Demo Order Progress Timeline */}
+      <OrderTimeline
+        orderId={order.id}
+        status={order.status}
+        createdAt={order.created_at}
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-start">
         {/* Itemized Order List */}

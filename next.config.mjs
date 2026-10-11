@@ -23,6 +23,30 @@ const nextConfig = {
         source: "/ready",
         destination: `${backendTarget}/ready`,
       },
+      {
+        source: "/store",
+        destination: "/explore",
+      },
+      {
+        source: "/search",
+        destination: "/explore",
+      },
+      {
+        source: "/categories/:slug",
+        destination: "/explore?category=:slug",
+      },
+      {
+        source: "/nutrients/:group",
+        destination: "/explore?nutrient=:group",
+      },
+      {
+        source: "/products/:id",
+        destination: "/food/:id",
+      },
+      {
+        source: "/scan",
+        destination: "/scanner",
+      },
     ];
   },
 };

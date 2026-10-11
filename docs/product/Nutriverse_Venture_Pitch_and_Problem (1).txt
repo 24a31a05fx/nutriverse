@@ -1,0 +1,353 @@
+NUTRIVERSE
+
+Venture Pitch & Problem Statement
+
+1. The Problem We Are Solving
+
+Today, people can easily buy food, but choosing the right food for their nutritional needs is still difficult. Most supermarkets organize products by conventional categories rather than by the nutrients a person needs. People may also find nutrition labels difficult to understand and may not know how to select, combine, or prepare foods to support their nutritional needs.
+
+People may eat enough food but still not get the right balance of nutrients.
+
+Nutrition labels can be difficult for ordinary customers to understand.
+
+People may not know how much protein, carbohydrates, fats, vitamins, and minerals they need.
+
+Finding healthy food, planning meals, and deciding how to prepare them can take time.
+
+Existing grocery platforms mainly help people buy products rather than understand how those products fit their nutritional needs.
+
+Problem in One Sentence
+
+“The problem is not that people cannot find food; the problem is that they struggle to know which food and nutrients are right for them.”
+
+2. Our Solution — Nutriverse
+
+Nutriverse is a nutrition-first grocery store and digital platform that changes the way people discover, understand, and buy food. Instead of organizing the store only by conventional categories, Nutriverse organizes food around nutritional value.
+
+Carbohydrates — carbohydrate-rich foods
+
+Proteins — protein-rich foods
+
+Healthy fats — foods that provide fats
+
+Vitamins & minerals — nutrient-rich foods
+
+3. Smart Packaging & Nutriverse App
+
+Every Nutriverse product/package will clearly display nutritional information such as calories, protein, carbohydrates, fats, vitamins, and minerals. Each package will also contain a barcode or QR code connected to the Nutriverse app.
+
+After scanning a product, customers can access:
+
+Complete nutrient information
+
+Recipe suggestions
+
+Preparation methods such as boiling, baking, steaming, etc.
+
+Suggestions for foods that can be combined with the product
+
+AI-based suggestions and guidance
+
+4. Calin Packs — Our Differentiating Feature
+
+Calin Packs are a special and separate part of the Nutriverse venture. In the normal Nutriverse store, customers can choose individual foods based on their nutritional needs. Calin Packs go one step further by combining different foods into a package designed around a person's daily nutritional requirements.
+
+A Calin Pack can combine:
+
+Protein sources
+
+Carbohydrate sources
+
+Vegetables and fruits
+
+Healthy fats
+
+Other required nutrients
+
+Calin Packs can be offered in different tiers:
+
+Basic — affordable essential nutrition
+
+Minimal Plus — balanced quality and cost
+
+Premium — higher-quality proteins and greater variety
+
+5. The Difference Between the Three Layers
+
+Nutriverse Layer
+
+Purpose
+
+Nutriverse Store
+
+Choose individual foods based on nutritional value.
+
+Nutriverse App
+
+Understand the food through nutrition details, recipes, preparation methods, and AI suggestions.
+
+Calin Packs
+
+Combine multiple foods into a personalized nutrition package designed around daily nutritional requirements.
+
+6. Venture Pitch
+
+Today, people can buy almost any food within minutes, but the real problem is knowing whether they are buying the right food for their nutritional needs.
+
+Most supermarkets organize food by product categories rather than by nutrition. Nutrition labels can also be difficult to understand, and people often do not know how to select, combine, or prepare foods to meet their nutritional needs.
+
+This is the problem we want to solve with Nutriverse.
+
+Nutriverse is a nutrition-first grocery store and digital platform where food is organized based on its nutritional value. Every product clearly displays its calories and nutrient information and has a barcode or QR code that connects to our app. By scanning a product, customers can see its nutritional information, recipes, preparation methods, and get AI-based suggestions.
+
+But our unique offering is Calin Packs. Unlike normal grocery shopping, where customers choose products individually, Calin Packs combine different foods into a personalized nutrition package designed around a person's daily nutritional requirements.
+
+So, Nutriverse is not just another grocery store. Our goal is to make nutrition easier to understand, easier to choose, and easier to follow. We want to move people from simply asking, ‘What should I buy?’ to asking, ‘What does my body need, and how can I get it?’
+
+7. Strong Closing Line
+
+“Nutriverse — don’t just fill your plate; understand what your body needs.”
+
+Activity level
+
+Calculation
+
+Description
+
+Sedentary
+
+BMR × 1.2
+
+Little or no exercise
+
+Light activity
+
+BMR × 1.375
+
+Exercise 1–3 days/week
+
+Moderate activity
+
+BMR × 1.55
+
+Exercise 3–5 days/week
+
+Very active
+
+BMR × 1.725
+
+Exercise 6–7 days/week
+
+Extremely active
+
+BMR × 1.9
+
+Physical job plus training
+
+8. Personalized Calorie Requirements
+
+Calorie needs depend primarily on age, sex, and activity level in general public-health reference tables. For more individualized estimates, height and weight can also be incorporated through the Mifflin–St Jeor equation.
+
+General Reference Table
+
+Age
+
+Sex
+
+Sedentary
+
+Moderately Active
+
+Active
+
+2–3
+
+Both
+
+1,000
+
+1,000–1,400
+
+1,000–1,400
+
+4–8
+
+Female
+
+1,200
+
+1,400–1,600
+
+1,400–1,800
+
+4–8
+
+Male
+
+1,200
+
+1,400–1,600
+
+1,600–2,000
+
+9–13
+
+Female
+
+1,400–1,600
+
+1,600–2,000
+
+1,800–2,200
+
+9–13
+
+Male
+
+1,600–2,000
+
+1,800–2,200
+
+2,000–2,600
+
+14–18
+
+Female
+
+1,800
+
+2,000
+
+2,400
+
+14–18
+
+Male
+
+2,000–2,400
+
+2,400–2,800
+
+2,800–3,200
+
+19–30
+
+Female
+
+1,800–2,000
+
+2,000–2,200
+
+2,400
+
+19–30
+
+Male
+
+2,400–2,600
+
+2,600–2,800
+
+3,000
+
+31–50
+
+Female
+
+1,800
+
+2,000
+
+2,200
+
+31–50
+
+Male
+
+2,200–2,400
+
+2,400–2,600
+
+2,800–3,000
+
+51+
+
+Female
+
+1,600
+
+1,800
+
+2,000–2,200
+
+51+
+
+Male
+
+2,000–2,200
+
+2,200–2,400
+
+2,400–2,800
+
+Note: This general table does not include height and weight because population-level reference tables are based on typical population characteristics.
+
+Individual Height/Weight-Specific Estimate — Mifflin–St Jeor
+
+Men: BMR = (10 × weight in kg) + (6.25 × height in cm) − (5 × age) + 5
+
+Women: BMR = (10 × weight in kg) + (6.25 × height in cm) − (5 × age) − 161
+
+Activity Factors
+
+Activity Level
+
+Multiplier
+
+Description
+
+Sedentary
+
+× 1.2
+
+Little/no exercise
+
+Light activity
+
+× 1.375
+
+Exercise 1–3 days/week
+
+Moderate activity
+
+× 1.55
+
+Exercise 3–5 days/week
+
+Very active
+
+× 1.725
+
+Exercise 6–7 days/week
+
+Extremely active
+
+× 1.9
+
+Physical job + training
+
+Example
+
+A 30-year-old male, 75 kg, 175 cm, moderately active:
+
+BMR = (10 × 75) + (6.25 × 175) − (5 × 30) + 5 = 1,698.75 kcal/day
+
+Estimated daily calorie requirement = 1,698.75 × 1.55 ≈ 2,633 kcal/day
+
+How This Fits Nutriverse
+
+The Nutriverse app can collect age, sex, height, weight, and activity level to estimate an individual's daily calorie requirement. This estimate can support personalized food choices and customization of Calin Packs. It should be presented as an estimate rather than an exact medical prescription.
+
+9. Strong Closing Line
+
+“Nutriverse — don’t just fill your plate; understand what your body needs.”

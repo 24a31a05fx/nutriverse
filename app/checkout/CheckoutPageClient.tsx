@@ -30,6 +30,7 @@ export default function CheckoutPageClient() {
   const [notes, setNotes] = useState("Please ring doorbell twice.");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [demoAcknowledged, setDemoAcknowledged] = useState(true);
 
   React.useEffect(() => {
     if (currentUser?.name) {
@@ -251,21 +252,32 @@ export default function CheckoutPageClient() {
             </div>
           </div>
 
-          <div className="bg-emerald-50/80 border border-emerald-200/80 rounded-3xl p-6 space-y-4">
-            <div className="flex items-center gap-2">
-              <CreditCard className="w-4 h-4 text-emerald-800" />
-              <span className="text-xs font-bold text-emerald-950">Payment Mode: Demonstration Gateway</span>
+          <div className="bg-[#F6F1E4] border border-[#DDD3B8] rounded-3xl p-6 space-y-4">
+            <div className="p-3.5 bg-white border border-[#DDD3B8] rounded-2xl text-xs space-y-2.5">
+              <div className="flex items-start gap-2">
+                <ShieldCheck className="w-4 h-4 text-[#3E4A26] shrink-0 mt-0.5" />
+                <p className="font-bold text-[#232A16] leading-snug">
+                  Demo checkout — no payment will be taken and no real delivery is booked.
+                </p>
+              </div>
+              <label className="flex items-start gap-2 cursor-pointer text-[11px] text-[#6B7A45] pt-1 border-t border-[#DDD3B8]/60">
+                <input
+                  type="checkbox"
+                  checked={demoAcknowledged}
+                  onChange={(e) => setDemoAcknowledged(e.target.checked)}
+                  className="mt-0.5 rounded border-[#DDD3B8] text-[#3E4A26] focus:ring-[#3E4A26]"
+                  required
+                />
+                <span>I acknowledge this is a demonstration order for evaluation purposes only.</span>
+              </label>
             </div>
-            <p className="text-[11px] text-emerald-800 leading-relaxed">
-              Order fulfillment is simulated with instant dispatch confirmation. No real credit card charge occurs during local demonstration mode.
-            </p>
 
             <button
               type="submit"
-              disabled={submitting}
-              className="w-full py-3.5 px-6 rounded-2xl bg-emerald-800 hover:bg-emerald-900 disabled:opacity-50 text-white text-xs font-bold shadow-lg transition flex items-center justify-center gap-2"
+              disabled={submitting || !demoAcknowledged}
+              className="w-full py-3.5 px-6 rounded-2xl bg-[#3E4A26] hover:bg-[#232A16] disabled:opacity-50 text-[#F6F1E4] text-xs font-bold transition flex items-center justify-center gap-2"
             >
-              {submitting ? "Placing Order..." : `Confirm & Place Order (${formatPaise(cart.total_paise)})`}
+              {submitting ? "Placing Demo Order..." : `Confirm & Place Order — Demo (${formatPaise(cart.total_paise)})`}
             </button>
           </div>
         </div>

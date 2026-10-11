@@ -1,0 +1,261 @@
+6. Implementation Plan
+
+Nutriverse Web Application • MVP Specification
+
+Prepared from the supplied Nutriverse Venture Pitch & Problem Statement, Scientific Problem Research Summary, and Nutrition-First Retail Business Concept.
+
+1. Delivery Strategy
+
+Build vertically: every phase should finish a usable slice rather than building the entire frontend first and backend later. Use seeded data early so UI, API, nutrition logic, and database contracts can be tested together.
+
+2. Phase Plan
+
+Phase
+
+Work
+
+Deliverable
+
+0
+
+Repository, environments, architecture, coding standards
+
+Running skeleton + CI/checks
+
+1
+
+Design system, layout, routing, landing/auth
+
+Navigable frontend
+
+2
+
+User model, onboarding APIs, nutrition engine
+
+Calculated nutrition profile
+
+3
+
+Food schema, seed catalog, search/filter/details
+
+Working Food Explorer
+
+4
+
+Recipes + scanner demo + scan history
+
+Food intelligence slice
+
+5
+
+Calin Pack rules engine + tiers + customization
+
+Working Calin Packs
+
+6
+
+Cart, demo checkout, orders
+
+Complete purchase flow
+
+7
+
+Progress tracking + dashboard analytics
+
+Personal progress experience
+
+8
+
+AI assistant + grounding + guardrails
+
+Working assistant
+
+9
+
+Admin views and management APIs
+
+Operational dashboard
+
+10
+
+Testing, security, responsiveness, deployment
+
+MVP release candidate
+
+3. Recommended Task Order
+
+Freeze requirements and data definitions.
+
+Create repository and project structure.
+
+Implement PostgreSQL schema and migrations.
+
+Seed food, nutrition, recipe, and Calin Pack data.
+
+Build authentication/profile APIs.
+
+Build nutrition calculation service.
+
+Build frontend shell and design system.
+
+Build onboarding and dashboard.
+
+Build Food Explorer and Food Details.
+
+Build recipes and scanner demo.
+
+Build Calin Pack engine and customization.
+
+Build cart, demo checkout, and order APIs.
+
+Build progress tracking.
+
+Integrate AI assistant.
+
+Build admin dashboard.
+
+Run end-to-end tests and fix UX/data issues.
+
+Deploy MVP and prepare future payment/subscription interfaces.
+
+4. Team Workstreams
+
+Workstream
+
+Primary Responsibility
+
+Product/PM
+
+Requirements, acceptance criteria, priorities
+
+UI/UX
+
+Design system, screens, responsive prototypes
+
+Frontend
+
+Pages, components, state, API integration
+
+Backend
+
+APIs, auth, business services
+
+Database
+
+Schema, migrations, seed data, indexes
+
+Nutrition Engine
+
+Deterministic calculation and pack rules
+
+AI
+
+Grounding, prompts, safety/uncertainty handling
+
+QA
+
+Functional, integration, responsive, regression tests
+
+DevOps
+
+Environment, deployment, monitoring, secrets
+
+5. Definition of Done
+
+Feature works through the UI and API.
+
+Validation and error states exist.
+
+Database migration/seed data are included.
+
+Role/permission checks are implemented.
+
+Responsive behavior is tested.
+
+Critical path has automated tests where practical.
+
+Demo payment is visibly labeled.
+
+Nutrition values are sourced from the application dataset.
+
+AI cannot silently invent missing data.
+
+Documentation is updated.
+
+6. Testing Plan
+
+Test Level
+
+Examples
+
+Unit
+
+Calorie calculation, pack calculations, substitutions
+
+API
+
+Auth, profile, food search, pack generation, cart, orders
+
+Integration
+
+Onboarding → profile → pack → cart → order
+
+UI
+
+Responsive layouts, forms, navigation, empty/error states
+
+Security
+
+Authorization, input validation, secret exposure
+
+AI
+
+Grounding, missing-data behavior, disclaimer behavior
+
+Data
+
+Nutrition consistency, barcode uniqueness, order snapshots
+
+7. Release Checklist
+
+Production environment configured
+
+Database migrated and seeded
+
+Admin account created securely
+
+Environment secrets configured
+
+Demo checkout clearly labeled
+
+Privacy/consent screens present where needed
+
+Responsive testing complete
+
+Critical API and user flows tested
+
+Backup/recovery approach documented
+
+Known limitations documented
+
+8. Phase 2 Backlog
+
+Real payment gateway
+
+Subscriptions
+
+Delivery integration
+
+Nutritionist review portal
+
+Physical-store inventory/POS
+
+Real barcode catalog expansion
+
+Advanced personalization
+
+Corporate/B2B workflows
+
+Production analytics
+
+Expanded recommendation engine

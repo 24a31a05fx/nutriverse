@@ -1,0 +1,159 @@
+5. Backend Database Schema
+
+Nutriverse Web Application • MVP Specification
+
+Prepared from the supplied Nutriverse Venture Pitch & Problem Statement, Scientific Problem Research Summary, and Nutrition-First Retail Business Concept.
+
+1. Schema Principles
+
+Use PostgreSQL with UUID primary keys, timestamps, foreign keys, indexed search fields, and versioned nutrition calculations. Store user profile data separately from catalog data. Keep pack generation records so an order can be traced back to the exact pack composition used at purchase time.
+
+2. Core Tables
+
+Table
+
+Key Fields
+
+Relationships
+
+users
+
+id, name, email, password_hash, role, created_at
+
+1:M profiles/orders; roles user/admin
+
+nutrition_profiles
+
+id, user_id, age, sex, height_cm, weight_kg, activity_level, calorie_target, calculation_version
+
+1:1 user
+
+foods
+
+id, name, barcode, category, description, price, serving_size, active
+
+1:M nutrition records/recipes
+
+food_nutrition
+
+id, food_id, calories, protein_g, carbs_g, fat_g, fiber_g, vitamin_data, mineral_data, source, version
+
+M:1 food
+
+recipes
+
+id, name, description, instructions, prep_method, active
+
+M:M foods
+
+recipe_ingredients
+
+recipe_id, food_id, quantity, unit
+
+joins recipes/foods
+
+calin_packs
+
+id, tier, name, base_price, rules_version, active
+
+1:M pack items
+
+calin_pack_items
+
+id, pack_id, food_id, quantity, role
+
+M:1 pack and food
+
+carts
+
+id, user_id, status, updated_at
+
+1:M cart items
+
+cart_items
+
+id, cart_id, item_type, food_id, pack_id, quantity, unit_price
+
+M:1 cart
+
+orders
+
+id, user_id, status, subtotal, delivery_fee, total, demo_payment, created_at
+
+1:M order items
+
+order_items
+
+id, order_id, food_id, pack_id, quantity, unit_price, snapshot_data
+
+M:1 order
+
+progress_logs
+
+id, user_id, food_id, quantity, meal_type, consumed_at
+
+M:1 user/food
+
+scan_events
+
+id, user_id, barcode, food_id, scanned_at
+
+M:1 user/food
+
+ai_conversations
+
+id, user_id, title, created_at
+
+1:M messages
+
+ai_messages
+
+id, conversation_id, role, content, context_json, created_at
+
+M:1 conversation
+
+admin_audit_logs
+
+id, admin_user_id, action, entity_type, entity_id, metadata, created_at
+
+admin traceability
+
+3. Important Constraints
+
+users.email unique.
+
+foods.barcode indexed and unique when present.
+
+nutrition_profiles.user_id unique.
+
+All order items store a snapshot of price/product/pack information so historical orders do not change when catalog data changes.
+
+Use CHECK constraints for non-negative quantities and prices.
+
+Use soft-delete/active flags for catalog records rather than deleting referenced products.
+
+Foreign keys use explicit delete behavior.
+
+4. Indexes
+
+foods(barcode)
+
+foods(name)
+
+foods(category)
+
+food_nutrition(food_id)
+
+orders(user_id, created_at)
+
+progress_logs(user_id, consumed_at)
+
+scan_events(user_id, scanned_at)
+
+5. Calin Pack Generation Data
+
+The pack generator should produce a pack record plus item-level quantities and a rules/calculation version. This allows the application to reproduce what was recommended/selected at that time.
+
+6. Example Entity Relationships
+
+User 1—1 NutritionProfile; User 1—M Orders; User 1—M ProgressLogs; User 1—M ScanEvents; Food 1—1/M NutritionRecords depending on versioning; Recipe M—M Food; CalinPack 1—M PackItems; Order 1—M OrderItems.

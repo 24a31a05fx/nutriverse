@@ -170,8 +170,8 @@ export default function BarcodeLandingClient({ barcode, initialFood }: BarcodeLa
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <div className="bg-white p-4 rounded-2xl border border-gray-100 text-center shadow-sm">
           <span className="text-[10px] uppercase font-bold text-gray-500 block">Energy</span>
-          <span className="text-xl font-black text-gray-900 block mt-0.5">{food.calories}</span>
-          <span className="text-[10px] text-gray-500">kcal / {food.serving_size}</span>
+          <span className="text-xl font-black text-gray-900 block mt-0.5">{food.calories} kcal</span>
+          <span className="text-[10px] text-gray-500">per {food.serving_size}</span>
         </div>
         <div className="bg-white p-4 rounded-2xl border border-gray-100 text-center shadow-sm">
           <span className="text-[10px] uppercase font-bold text-emerald-700 block">Protein</span>

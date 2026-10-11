@@ -1,0 +1,191 @@
+3. UI/UX Design Specification
+
+Nutriverse Web Application • MVP Specification
+
+Prepared from the supplied Nutriverse Venture Pitch & Problem Statement, Scientific Problem Research Summary, and Nutrition-First Retail Business Concept.
+
+1. Visual Direction
+
+Warm, fresh, food-focused, and approachable. The design should feel like a modern healthy-food brand rather than a hospital or clinical dashboard.
+
+2. Visual System
+
+Element
+
+Direction
+
+Primary
+
+Deep/natural Nutriverse green
+
+Accent
+
+Citrus/orange food accent
+
+Background
+
+Warm off-white
+
+Surface
+
+White cards
+
+Typography
+
+Clean modern sans-serif
+
+Shape
+
+Moderately rounded cards/buttons
+
+Imagery
+
+Fresh food, ingredients, recipes
+
+Data visuals
+
+Simple bars, rings, progress indicators
+
+3. Navigation
+
+Desktop: logo → Home → Explore Foods → Calin Packs → Recipes → Progress; right side: Scan, AI Assistant, Cart, Profile. Mobile: bottom navigation for Home, Explore, Calin, Progress, Profile; floating/primary scan action.
+
+4. Screen Inventory
+
+Screen
+
+Purpose
+
+Primary CTA
+
+Landing
+
+Explain the product
+
+Build My Profile
+
+Onboarding
+
+Collect required profile data
+
+Calculate My Profile
+
+Nutrition Profile
+
+Show estimated requirements
+
+Go to Dashboard
+
+Dashboard
+
+Daily overview
+
+Build Calin Pack
+
+Food Explorer
+
+Search/discover foods
+
+View Food
+
+Food Details
+
+Understand a food
+
+Add / Recipe / Ask AI
+
+Recipes
+
+Discover meals
+
+Use Recipe
+
+Scanner
+
+Demo scan/lookup
+
+Scan Product
+
+AI Assistant
+
+Ask nutrition questions
+
+Send
+
+Calin Packs
+
+Generate and compare tiers
+
+Customize
+
+Pack Customize
+
+Substitute items
+
+Add to Cart
+
+Cart
+
+Review purchase
+
+Checkout
+
+Demo Checkout
+
+Create demo order
+
+Place Demo Order
+
+Progress
+
+Track nutrition history
+
+View Details
+
+Admin
+
+Operate catalog/orders
+
+Manage
+
+5. Key UX Principles
+
+Show one primary action per screen.
+
+Make nutrition values scannable rather than burying them in paragraphs.
+
+Always show the user's context when recommending a food or pack.
+
+Use progressive disclosure for detailed nutrient information.
+
+Make substitutions easy and show their nutrition/price impact.
+
+Clearly distinguish estimates, recommendations, and factual product data.
+
+Never hide demo-payment status.
+
+6. Dashboard Layout
+
+Header → greeting/profile → daily calorie summary → macro/micro progress → recommended foods → Calin Pack card → recent meals/scans → AI shortcut.
+
+7. Food Card
+
+Image → food name → key nutrition values → nutrient tags → price → buttons for details and add. Cards should support comparison and filters.
+
+8. Calin Pack UX
+
+Start with the user's nutrition summary, then show three tier cards. Selecting a tier opens the generated pack. Each item can be replaced. Changes should update nutrition totals and price immediately.
+
+9. Accessibility
+
+WCAG-aware contrast
+
+Visible focus states
+
+Form labels and validation
+
+Alt text for food imagery
+
+Do not rely on color alone for nutrition status
+
+Keyboard-accessible controls

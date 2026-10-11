@@ -18,12 +18,20 @@ import FoodDetailModal from "./FoodDetailModal";
 
 interface FoodExplorerViewProps {
   onAddToCart: (food: Food, quantity?: number) => void;
+  initialCategory?: string;
+  initialNutrient?: string;
+  initialQuery?: string;
 }
 
-export default function FoodExplorerView({ onAddToCart }: FoodExplorerViewProps) {
+export default function FoodExplorerView({
+  onAddToCart,
+  initialCategory,
+  initialNutrient,
+  initialQuery,
+}: FoodExplorerViewProps) {
   const [foods, setFoods] = useState<Food[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(initialQuery || "");
   const [selectedNutrientTag, setSelectedNutrientTag] = useState<string>("all");
   const [selectedConventionalCategory, setSelectedConventionalCategory] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("name");
@@ -53,6 +61,16 @@ export default function FoodExplorerView({ onAddToCart }: FoodExplorerViewProps)
       setFoods(data);
     } catch (err) {
       console.error("Error loading food explorer catalog:", err);
+      setTimeout(async () => {
+        try {
+          let queryUrl = `/foods?sort_by=${sortBy}`;
+          if (search.trim()) queryUrl += `&q=${encodeURIComponent(search.trim())}`;
+          if (selectedNutrientTag !== "all") queryUrl += `&nutrition_tag=${selectedNutrientTag}`;
+          if (selectedConventionalCategory !== "all") queryUrl += `&category=${encodeURIComponent(selectedConventionalCategory)}`;
+          const retryData = await api<Food[]>(queryUrl);
+          if (retryData && retryData.length > 0) setFoods(retryData);
+        } catch {}
+      }, 500);
     } finally {
       setLoading(false);
     }
@@ -75,6 +93,34 @@ export default function FoodExplorerView({ onAddToCart }: FoodExplorerViewProps)
     "Healthy Oils & Fats",
     "Cruciferous & Greens",
   ];
+
+  useEffect(() => {
+    if (initialQuery !== undefined) {
+      setSearch(initialQuery);
+    }
+  }, [initialQuery]);
+
+  useEffect(() => {
+    if (initialNutrient) {
+      const normalized = initialNutrient.toLowerCase().replace(/[^a-z0-9]/g, "");
+      const match = nutrientFilters.find((f) => {
+        const fNorm = f.id.toLowerCase().replace(/[^a-z0-9]/g, "");
+        return fNorm === normalized || fNorm.includes(normalized) || normalized.includes(fNorm);
+      });
+      if (match) setSelectedNutrientTag(match.id);
+    }
+  }, [initialNutrient]);
+
+  useEffect(() => {
+    if (initialCategory) {
+      const normalized = initialCategory.toLowerCase().replace(/[^a-z0-9]/g, "");
+      const match = conventionalCategories.find((c) => {
+        const cNorm = c.toLowerCase().replace(/[^a-z0-9]/g, "");
+        return cNorm === normalized || cNorm.includes(normalized) || normalized.includes(cNorm);
+      });
+      if (match) setSelectedConventionalCategory(match);
+    }
+  }, [initialCategory]);
 
   return (
     <section className="section section-cream" style={{ paddingTop: "2.5rem" }}>

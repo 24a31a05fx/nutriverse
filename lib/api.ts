@@ -48,6 +48,7 @@ export interface NutritionProfile {
   budget_paise?: number;
   goal?: string;
   calculation_version?: string;
+  consent_revoked_at?: string | null;
 }
 
 export interface Food {
@@ -128,7 +129,18 @@ export interface CartResponse {
 export interface OrderModel {
   id: string;
   user_id?: string;
-  status: "placed" | "confirmed" | "preparing" | "out_for_delivery" | "delivered" | "cancelled";
+  status:
+    | "placed"
+    | "confirmed"
+    | "preparing"
+    | "out_for_delivery"
+    | "delivered"
+    | "cancelled"
+    | "placed_demo"
+    | "preparing_demo"
+    | "completed_demo"
+    | "cancelled_demo"
+    | string;
   subtotal_paise: number;
   delivery_fee_paise: number;
   total_paise: number;

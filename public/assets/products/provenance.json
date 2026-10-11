@@ -1,0 +1,183 @@
+[
+  {
+    "product_id": "potato",
+    "filename": "potato.jpg",
+    "local_url": "/assets/products/potato.jpg",
+    "source_url": "https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=600&auto=format&fit=crop&q=80",
+    "author": "Lars Blankers",
+    "license": "Unsplash Free Commercial License",
+    "alt_text": "Fresh whole unpeeled potatoes in natural light",
+    "status": "verified_authentic"
+  },
+  {
+    "product_id": "chickpeas",
+    "filename": "chickpeas.jpg",
+    "local_url": "/assets/products/chickpeas.jpg",
+    "source_url": "https://images.unsplash.com/photo-1515543237350-b3eea1ec8082?w=600&auto=format&fit=crop&q=80",
+    "author": "Milada Vigerova",
+    "license": "Unsplash Free Commercial License",
+    "alt_text": "Organic desi chickpeas in ceramic bowl",
+    "status": "verified_authentic"
+  },
+  {
+    "product_id": "spinach",
+    "filename": "spinach.jpg",
+    "local_url": "/assets/products/spinach.jpg",
+    "source_url": "https://images.unsplash.com/photo-1576045057995-568f588f82fb?w=600&auto=format&fit=crop&q=80",
+    "author": "Elianna Friedman",
+    "license": "Unsplash Free Commercial License",
+    "alt_text": "Tender organic green baby spinach leaves",
+    "status": "verified_authentic"
+  },
+  {
+    "product_id": "sweet_potato",
+    "filename": "sweet-potato.jpg",
+    "local_url": "/assets/products/sweet-potato.jpg",
+    "status": "pending_fallback",
+    "error": "HTTP Error 404: Not Found"
+  },
+  {
+    "product_id": "greek_yoghurt",
+    "filename": "greek-yoghurt.jpg",
+    "local_url": "/assets/products/greek-yoghurt.jpg",
+    "source_url": "https://images.unsplash.com/photo-1488477181946-6428a0291777?w=600&auto=format&fit=crop&q=80",
+    "author": "Sara Cervera",
+    "license": "Unsplash Free Commercial License",
+    "alt_text": "Creamy probiotic Greek yoghurt in bowl",
+    "status": "verified_authentic"
+  },
+  {
+    "product_id": "quinoa",
+    "filename": "quinoa.jpg",
+    "local_url": "/assets/products/quinoa.jpg",
+    "source_url": "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=600&auto=format&fit=crop&q=80",
+    "author": "Jocelyn Morales",
+    "license": "Unsplash Free Commercial License",
+    "alt_text": "Organic white quinoa grains",
+    "status": "verified_authentic"
+  },
+  {
+    "product_id": "blueberries",
+    "filename": "blueberries.jpg",
+    "local_url": "/assets/products/blueberries.jpg",
+    "source_url": "https://images.unsplash.com/photo-1498557850523-fd3d118b962e?w=600&auto=format&fit=crop&q=80",
+    "author": "Joanna Kosinska",
+    "license": "Unsplash Free Commercial License",
+    "alt_text": "Fresh wild antioxidant-rich blueberries",
+    "status": "verified_authentic"
+  },
+  {
+    "product_id": "almonds",
+    "filename": "almonds.jpg",
+    "local_url": "/assets/products/almonds.jpg",
+    "source_url": "https://images.unsplash.com/photo-1508061253366-f7da158b6d46?w=600&auto=format&fit=crop&q=80",
+    "author": "Remi Yuan",
+    "license": "Unsplash Free Commercial License",
+    "alt_text": "Raw California whole almonds",
+    "status": "verified_authentic"
+  },
+  {
+    "product_id": "chia_seeds",
+    "filename": "chia-seeds.jpg",
+    "local_url": "/assets/products/chia-seeds.jpg",
+    "source_url": "https://images.unsplash.com/photo-1514733670139-4d87a1941d55?w=600&auto=format&fit=crop&q=80",
+    "author": "Maddi Bazzocco",
+    "license": "Unsplash Free Commercial License",
+    "alt_text": "Organic black chia seeds with omega-3",
+    "status": "verified_authentic"
+  },
+  {
+    "product_id": "green_moong",
+    "filename": "green-moong.jpg",
+    "local_url": "/assets/products/green-moong.jpg",
+    "source_url": "https://images.unsplash.com/photo-1587334274328-64186a80aeee?w=600&auto=format&fit=crop&q=80",
+    "author": "Sanjay Acharya",
+    "license": "Unsplash Free Commercial License",
+    "alt_text": "Whole green gram moong beans",
+    "status": "verified_authentic"
+  },
+  {
+    "product_id": "mustard_oil",
+    "filename": "mustard-oil.jpg",
+    "local_url": "/assets/products/mustard-oil.jpg",
+    "source_url": "https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=600&auto=format&fit=crop&q=80",
+    "author": "Roberta Sorge",
+    "license": "Unsplash Free Commercial License",
+    "alt_text": "Cold-pressed golden unrefined cooking oil",
+    "status": "verified_authentic"
+  },
+  {
+    "product_id": "rolled_oats",
+    "filename": "rolled-oats.jpg",
+    "local_url": "/assets/products/rolled-oats.jpg",
+    "source_url": "https://images.unsplash.com/photo-1586444248902-2f64eddc13df?w=600&auto=format&fit=crop&q=80",
+    "author": "Melissa Belanger",
+    "license": "Unsplash Free Commercial License",
+    "alt_text": "Whole grain jumbo rolled oats",
+    "status": "verified_authentic"
+  },
+  {
+    "product_id": "broccoli",
+    "filename": "broccoli.jpg",
+    "local_url": "/assets/products/broccoli.jpg",
+    "source_url": "https://images.unsplash.com/photo-1459411621453-7b03977f4bfc?w=600&auto=format&fit=crop&q=80",
+    "author": "Annie Spratt",
+    "license": "Unsplash Free Commercial License",
+    "alt_text": "Fresh green broccoli florets",
+    "status": "verified_authentic"
+  },
+  {
+    "product_id": "garlic",
+    "filename": "garlic.jpg",
+    "local_url": "/assets/products/garlic.jpg",
+    "source_url": "https://images.unsplash.com/photo-1540148426945-6cf22a6b2383?w=600&auto=format&fit=crop&q=80",
+    "author": "Gaelle Marcel",
+    "license": "Unsplash Free Commercial License",
+    "alt_text": "Fresh white garlic bulbs and cloves",
+    "status": "verified_authentic"
+  },
+  {
+    "product_id": "red_onions",
+    "filename": "red-onions.jpg",
+    "local_url": "/assets/products/red-onions.jpg",
+    "source_url": "https://images.unsplash.com/photo-1618512496248-a07fe83aa8cb?w=600&auto=format&fit=crop&q=80",
+    "author": "Ksenia Chernaya",
+    "license": "Unsplash Free Commercial License",
+    "alt_text": "Fresh harvest Indian red onions",
+    "status": "verified_authentic"
+  },
+  {
+    "product_id": "green_chillies",
+    "filename": "green-chillies.jpg",
+    "local_url": "/assets/products/green-chillies.jpg",
+    "source_url": "https://images.unsplash.com/photo-1588252303782-cb80119abd6d?w=600&auto=format&fit=crop&q=80",
+    "author": "Chung Hoang",
+    "license": "Unsplash Free Commercial License",
+    "alt_text": "Fresh sharp green chillies",
+    "status": "verified_authentic"
+  },
+  {
+    "product_id": "lemons",
+    "filename": "lemons.jpg",
+    "local_url": "/assets/products/lemons.jpg",
+    "status": "pending_fallback",
+    "error": "HTTP Error 404: Not Found"
+  },
+  {
+    "product_id": "ginger",
+    "filename": "ginger.jpg",
+    "local_url": "/assets/products/ginger.jpg",
+    "source_url": "https://images.unsplash.com/photo-1615485290382-441e4d049cb5?w=600&auto=format&fit=crop&q=80",
+    "author": "Mockup Graphics",
+    "license": "Unsplash Free Commercial License",
+    "alt_text": "Fresh organic spicy ginger root",
+    "status": "verified_authentic"
+  },
+  {
+    "product_id": "muskmelon",
+    "filename": "muskmelon.jpg",
+    "local_url": "/assets/products/muskmelon.jpg",
+    "status": "pending_fallback",
+    "error": "HTTP Error 404: Not Found"
+  }
+]

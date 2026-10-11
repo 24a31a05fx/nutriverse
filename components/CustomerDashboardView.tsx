@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import { User, NutritionProfile, OrderModel, SubscriptionModel, NutritionistRequestModel, api, formatPaise, money } from "@/lib/api";
 import { Activity, Package, Calendar, Clock, UserCheck, CheckCircle2, AlertCircle, RefreshCw, ChevronRight, Pause, Play, XCircle } from "lucide-react";
 
@@ -23,6 +24,22 @@ export const CustomerDashboardView: React.FC<CustomerDashboardProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updatingSubId, setUpdatingSubId] = useState<string | null>(null);
+  const [confirmedProposals, setConfirmedProposals] = useState<Record<string, "accepted" | "declined">>({});
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("nutriverse_nutritionist_decisions");
+      if (saved) setConfirmedProposals(JSON.parse(saved));
+    } catch {}
+  }, []);
+
+  const handleDecision = (id: string, decision: "accepted" | "declined") => {
+    const updated = { ...confirmedProposals, [id]: decision };
+    setConfirmedProposals(updated);
+    try {
+      localStorage.setItem("nutriverse_nutritionist_decisions", JSON.stringify(updated));
+    } catch {}
+  };
 
   const fetchDashboardData = async () => {
     setLoading(true);
@@ -61,16 +78,22 @@ export const CustomerDashboardView: React.FC<CustomerDashboardProps> = ({
 
   const getStatusBadge = (status: string) => {
     switch (status) {
+      case "placed_demo":
       case "placed":
-        return <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">Placed</span>;
+        return <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">Placed (Demo)</span>;
       case "confirmed":
         return <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">Confirmed</span>;
+      case "preparing_demo":
       case "preparing":
-        return <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">In Prep</span>;
+        return <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">In Prep (Demo)</span>;
       case "out_for_delivery":
         return <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-purple-50 text-purple-700 border border-purple-200">Out for Delivery</span>;
+      case "completed_demo":
       case "delivered":
-        return <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">Delivered</span>;
+        return <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">Completed (Demo)</span>;
+      case "cancelled_demo":
+      case "cancelled":
+        return <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-red-50 text-red-700 border border-red-200">Cancelled (Demo)</span>;
       default:
         return <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-gray-50 text-gray-700 border border-gray-200">{status}</span>;
     }
@@ -94,6 +117,13 @@ export const CustomerDashboardView: React.FC<CustomerDashboardProps> = ({
           </div>
 
           <div className="flex flex-wrap gap-2.5">
+            <Link
+              href="/today"
+              className="px-4 py-2.5 bg-emerald-700/80 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5"
+            >
+              <Calendar className="w-4 h-4 text-emerald-200" />
+              Today&apos;s Targets
+            </Link>
             <button
               type="button"
               onClick={onOpenOnboarding}
@@ -208,9 +238,14 @@ export const CustomerDashboardView: React.FC<CustomerDashboardProps> = ({
                   >
                     <div className="flex items-center justify-between">
                       <div className="space-y-0.5">
-                        <span className="text-xs font-bold text-gray-900">
-                          Order #{o.id.slice(0, 8)}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <Link href={`/orders/${o.id}`} className="text-xs font-bold text-gray-900 hover:text-emerald-700 underline">
+                            Order #{o.id.slice(0, 8)}
+                          </Link>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                            Demo order only
+                          </span>
+                        </div>
                         <p className="text-[10px] text-gray-600">
                           {new Date(o.created_at).toLocaleDateString("en-IN", {
                             day: "numeric",
@@ -405,7 +440,7 @@ export const CustomerDashboardView: React.FC<CustomerDashboardProps> = ({
                     </p>
 
                     {req.status === "reviewed" && req.guidance_notes ? (
-                      <div className="p-3 bg-white rounded-xl border border-teal-200/80 text-xs space-y-1 shadow-sm">
+                      <div className="p-3 bg-white rounded-xl border border-teal-200/80 text-xs space-y-2 shadow-sm">
                         <div className="flex items-center gap-1.5 font-bold text-teal-950">
                           <CheckCircle2 className="w-3.5 h-3.5 text-teal-600" />
                           Guidance from {req.nutritionist_name || "Certified Nutritionist"}
@@ -413,9 +448,45 @@ export const CustomerDashboardView: React.FC<CustomerDashboardProps> = ({
                         <p className="text-[11px] text-gray-700 leading-relaxed">
                           {req.guidance_notes}
                         </p>
-                        <p className="text-[10px] text-gray-600 pt-1">
+                        <p className="text-[10px] text-gray-600 pt-0.5">
                           Reviewed on {new Date(req.reviewed_at!).toLocaleDateString("en-IN")}
                         </p>
+
+                        {/* Customer Confirmation Action (Mandatory per PRD) */}
+                        <div className="pt-2 border-t border-teal-100">
+                          {confirmedProposals[req.id] === "accepted" ? (
+                            <div className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1.5 rounded-lg">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                              <span>Confirmed: Nutritionist recommendations applied to your upcoming pack.</span>
+                            </div>
+                          ) : confirmedProposals[req.id] === "declined" ? (
+                            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-gray-700 bg-gray-50 px-2.5 py-1.5 rounded-lg">
+                              <span>Declined: Retained your original customized pack selection.</span>
+                            </div>
+                          ) : (
+                            <div className="space-y-1.5 pt-1">
+                              <span className="text-[11px] font-bold text-gray-800 block">
+                                Customer Action Required: Confirm or decline proposed changes
+                              </span>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => handleDecision(req.id, "accepted")}
+                                  className="px-3 py-1.5 bg-[#236b48] hover:bg-[#1a5338] text-white text-[11px] font-bold rounded-lg transition shadow-2xs"
+                                >
+                                  Accept & Apply to Pack
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDecision(req.id, "declined")}
+                                  className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-[11px] font-semibold rounded-lg transition"
+                                >
+                                  Decline Changes
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     ) : (
                       <p className="text-[11px] text-amber-700 bg-amber-50 p-2 rounded-lg">

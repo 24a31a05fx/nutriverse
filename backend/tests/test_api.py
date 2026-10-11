@@ -94,7 +94,8 @@ def test_recipes_and_combinations():
 
     # Combinations calculation
     foods = client.get("/api/foods").json()
-    f1, f2 = foods[0]["id"], foods[1]["id"]
+    f1 = next(f["id"] for f in foods if f["protein_g"] > 0)
+    f2 = next(f["id"] for f in foods if f["id"] != f1)
     combo_res = client.post(
         "/api/combinations/calculate",
         json={"items": [{"food_id": f1, "quantity": 1}, {"food_id": f2, "quantity": 1}]},

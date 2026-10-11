@@ -216,6 +216,7 @@ class NutritionProfile(Base):
     budget_paise: Mapped[int] = mapped_column(Integer, default=150000)
     goal: Mapped[str] = mapped_column(String(80), default="Balanced Nourishment")
     calculation_version: Mapped[str] = mapped_column(String(20), default="mifflin-st-jeor-v1")
+    consent_revoked_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
@@ -243,6 +244,11 @@ class Food(Base):
     prep_methods: Mapped[str] = mapped_column(Text, default='["Raw","Soaked","Boiled"]')
     dietary_tags: Mapped[str] = mapped_column(Text, default='["Vegetarian"]')
     emoji: Mapped[str] = mapped_column(String(10), default="🥗")
+    image_alt: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    image_source_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    image_license: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    image_verified_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    approval_status: Mapped[str] = mapped_column(String(30), default="pending")
     active: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
@@ -260,6 +266,25 @@ class Recipe(Base):
     emoji: Mapped[str] = mapped_column(String(10), default="🍲")
     ingredients_json: Mapped[str] = mapped_column(Text, default="[]")  # list of {name, qty, unit, food_id}
     active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class RecipeIngredient(Base):
+    __tablename__ = "recipe_ingredients"
+    __table_args__ = (Index("ix_recipe_ingredients_recipe", "recipe_id"),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    recipe_id: Mapped[str] = mapped_column(ForeignKey("recipes.id", ondelete="CASCADE"))
+    food_id: Mapped[str] = mapped_column(ForeignKey("foods.id", ondelete="CASCADE"))
+    quantity: Mapped[float] = mapped_column(Float, default=1.0)
+    unit: Mapped[str] = mapped_column(String(40), default="serving")
+
+
+class ProductPairing(Base):
+    __tablename__ = "product_pairings"
+    __table_args__ = (Index("ix_product_pairings_pair", "food_id", "paired_food_id", unique=True),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    food_id: Mapped[str] = mapped_column(ForeignKey("foods.id", ondelete="CASCADE"))
+    paired_food_id: Mapped[str] = mapped_column(ForeignKey("foods.id", ondelete="CASCADE"))
+    reason: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
 
 class CalinPackTier(Base):
@@ -300,6 +325,7 @@ class Order(Base):
     items_json: Mapped[str] = mapped_column(Text, default="[]")
     delivery_address_json: Mapped[str] = mapped_column(Text, default="{}")
     demo_payment: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_demo: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
@@ -338,10 +364,22 @@ class NutritionistReviewRequest(Base):
     customer_notes: Mapped[str] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(30), default="pending")  # pending, reviewed
     guidance_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    proposed_changes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    consent_snapshot: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     nutritionist_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
     nutritionist_name: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
     reviewed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
+
+class NotifyRequest(Base):
+    __tablename__ = "notify_requests"
+    __table_args__ = (Index("ix_notify_requests_food_email", "food_id", "email"),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    user_id: Mapped[Optional[str]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    food_id: Mapped[str] = mapped_column(ForeignKey("foods.id", ondelete="CASCADE"), index=True)
+    email: Mapped[str] = mapped_column(String(255))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class AuditLog(Base):
@@ -792,7 +830,7 @@ class NutritionistReviewSubmit(BaseModel):
 
 
 class OrderStatusUpdate(BaseModel):
-    status: str = Field(pattern="^(placed|confirmed|preparing|out_for_delivery|delivered|cancelled)$")
+    status: str = Field(pattern="^(placed|confirmed|preparing|out_for_delivery|delivered|cancelled|placed_demo|preparing_demo|completed_demo|cancelled_demo)$")
 
 
 from contextlib import asynccontextmanager
@@ -828,7 +866,7 @@ def seed_initial_data() -> None:
                 session.commit()
 
         # 2. Seed Foods Catalog
-        if session.scalar(select(Food.id)) is None:
+        if True:
             catalog_foods = [
                 Food(
                     name="Sprouted Chickpeas",
@@ -1094,8 +1132,419 @@ def seed_initial_data() -> None:
                     dietary_tags=json.dumps(["Vegan", "Gluten-Free", "Detox Support"]),
                     emoji="🥦",
                 ),
+                Food(
+                    name="Potato (Bangala Dumpa)",
+                    barcode="8901234567810",
+                    category="Tubers & Roots",
+                    nutrition_tags=json.dumps(["carb_rich", "mineral_sources", "fiber_rich"]),
+                    description="Farm-fresh whole table potatoes rich in Potassium and Vitamin C. Clean carbohydrate source.",
+                    price_paise=2900,
+                    unit="1 kg",
+                    serving_size="100g",
+                    stock_qty=150,
+                    calories=77,
+                    protein_g=2.0,
+                    carbs_g=17.5,
+                    fat_g=0.1,
+                    fibre_g=2.2,
+                    vitamins_json=json.dumps({"potassium_mg": 421, "vitamin_c_mg": 19.7, "vitamin_b6_mg": 0.3}),
+                    ingredients="100% Farm-Fresh Whole Table Potatoes (Solanum tuberosum)",
+                    storage_info="Store in a cool, dark, well-ventilated dry basket away from onions and direct sunlight.",
+                    prep_methods=json.dumps(["Boiled & Mashed", "Steam Roasted", "Air-Fried with Cumin"]),
+                    dietary_tags=json.dumps(["Vegan", "Gluten-Free", "Whole Food"]),
+                    emoji="🥔",
+                ),
+                Food(
+                    name="Farm Fresh Red Onions",
+                    barcode="8901234567811",
+                    category="Alliums & Aromatics",
+                    nutrition_tags=json.dumps(["vitamin_sources", "mineral_sources", "fiber_rich"]),
+                    description="Pungent Indian red onions rich in Quercetin and prebiotic fructooligosaccharides.",
+                    price_paise=3800,
+                    unit="1 kg",
+                    serving_size="100g",
+                    stock_qty=140,
+                    calories=40,
+                    protein_g=1.1,
+                    carbs_g=9.3,
+                    fat_g=0.1,
+                    fibre_g=1.7,
+                    vitamins_json=json.dumps({"quercetin_mg": 19.4, "vitamin_c_mg": 7.4, "folate_mcg": 19}),
+                    ingredients="100% Organically Grown Red Onions (Allium cepa)",
+                    storage_info="Store in a dry, ventilated basket at room temperature.",
+                    prep_methods=json.dumps(["Raw Salad with Lemon", "Caramelized", "Curry Base"]),
+                    dietary_tags=json.dumps(["Vegan", "Gluten-Free", "Prebiotic"]),
+                    emoji="🧅",
+                ),
+                Food(
+                    name="Fresh Garlic Bulbs",
+                    barcode="8901234567812",
+                    category="Alliums & Aromatics",
+                    nutrition_tags=json.dumps(["vitamin_sources", "mineral_sources"]),
+                    description="Potent desi garlic bulbs rich in Allicin and manganese for antimicrobial cardiovascular support.",
+                    price_paise=4500,
+                    unit="250 g",
+                    serving_size="10g",
+                    stock_qty=100,
+                    calories=149,
+                    protein_g=6.4,
+                    carbs_g=33.1,
+                    fat_g=0.5,
+                    fibre_g=2.1,
+                    vitamins_json=json.dumps({"allicin_active": True, "manganese_mg": 1.67, "vitamin_b6_mg": 1.2}),
+                    ingredients="100% Sun-Cured Desi Garlic Bulbs (Allium sativum)",
+                    storage_info="Keep in a mesh bag at room temperature with plenty of air circulation.",
+                    prep_methods=json.dumps(["Crushed & Rested (Allicin Activation)", "Tadka Infusion", "Roasted"]),
+                    dietary_tags=json.dumps(["Vegan", "Gluten-Free", "Heart-Healthy"]),
+                    emoji="🧄",
+                ),
+                Food(
+                    name="Fresh Yellow Lemons",
+                    barcode="8901234567813",
+                    category="Berries & Fruits",
+                    nutrition_tags=json.dumps(["vitamin_sources", "mineral_sources"]),
+                    description="Juicy thin-skinned kagzi lemons packed with bioavailable Vitamin C. Enhances non-heme plant iron absorption by 300%.",
+                    price_paise=3200,
+                    unit="500 g",
+                    serving_size="50g",
+                    stock_qty=120,
+                    calories=29,
+                    protein_g=1.1,
+                    carbs_g=9.3,
+                    fat_g=0.3,
+                    fibre_g=2.8,
+                    vitamins_json=json.dumps({"vitamin_c_mg": 53.0, "citric_acid_percent": 5.5, "potassium_mg": 138}),
+                    ingredients="100% Orchard Fresh Kagzi Lemons (Citrus limon)",
+                    storage_info="Store in crisper drawer sealed in a damp cloth or zip pouch for up to 3 weeks.",
+                    prep_methods=json.dumps(["Fresh Lemon Squeeze", "Warm Lemon Water", "Zest & Marinade"]),
+                    dietary_tags=json.dumps(["Vegan", "Gluten-Free", "Iron Booster"]),
+                    emoji="🍋",
+                ),
+                Food(
+                    name="Fresh Organic Ginger",
+                    barcode="8901234567814",
+                    category="Alliums & Aromatics",
+                    nutrition_tags=json.dumps(["mineral_sources", "vitamin_sources"]),
+                    description="Spicy aromatic fresh ginger rhizomes packed with Gingerol and Shogaols for digestive health.",
+                    price_paise=3800,
+                    unit="250 g",
+                    serving_size="10g",
+                    stock_qty=95,
+                    calories=80,
+                    protein_g=1.8,
+                    carbs_g=17.8,
+                    fat_g=0.8,
+                    fibre_g=2.0,
+                    vitamins_json=json.dumps({"gingerol_active": True, "potassium_mg": 415, "magnesium_mg": 43}),
+                    ingredients="100% Organically Farmed Ginger Rhizomes (Zingiber officinale)",
+                    storage_info="Refrigerate unpeeled ginger in a paper bag or airtight container.",
+                    prep_methods=json.dumps(["Fresh Grated Tea Decoction", "Julienne Pickle", "Curry Base Paste"]),
+                    dietary_tags=json.dumps(["Vegan", "Gluten-Free", "Anti-Inflammatory"]),
+                    emoji="🫚",
+                ),
+                Food(
+                    name="Sweet Muskmelon (Kharbuja)",
+                    barcode="8901234567815",
+                    category="Berries & Fruits",
+                    nutrition_tags=json.dumps(["vitamin_sources", "fiber_rich"]),
+                    description="Hydrating sweet cantaloupe muskmelon packed with Vitamin A, Vitamin C, and electrolytes.",
+                    price_paise=6900,
+                    unit="1 pc (approx 1 kg)",
+                    serving_size="100g",
+                    stock_qty=60,
+                    calories=34,
+                    protein_g=0.8,
+                    carbs_g=8.2,
+                    fat_g=0.2,
+                    fibre_g=0.9,
+                    vitamins_json=json.dumps({"vitamin_a_iu": 3382, "vitamin_c_mg": 36.7, "potassium_mg": 267}),
+                    ingredients="100% Vine-Ripened Sweet Muskmelon (Cucumis melo)",
+                    storage_info="Ripen at room temperature; once cut, wrap tightly and refrigerate.",
+                    prep_methods=json.dumps(["Chilled Cubes", "Fresh Electrolyte Smoothie", "Hydration Bowl"]),
+                    dietary_tags=json.dumps(["Vegan", "Gluten-Free", "Hydrating"]),
+                    emoji="🍈",
+                ),
+                Food(
+                    name="Fresh Malai Paneer",
+                    barcode="8901234567816",
+                    category="Dairy & Probiotics",
+                    nutrition_tags=json.dumps(["protein_rich", "mineral_sources"]),
+                    description="Traditional soft cottage cheese made from pure cow milk. High protein and bioavailable calcium.",
+                    price_paise=11900,
+                    unit="200 g",
+                    serving_size="100g",
+                    stock_qty=75,
+                    calories=289,
+                    protein_g=18.3,
+                    carbs_g=3.4,
+                    fat_g=22.5,
+                    fibre_g=0.0,
+                    vitamins_json=json.dumps({"calcium_mg": 480, "phosphorus_mg": 280, "vitamin_a_iu": 360}),
+                    ingredients="Pasteurized Cow Milk, Citric Acid",
+                    storage_info="Store immersed in water in the refrigerator. Change water daily.",
+                    prep_methods=json.dumps(["Tawa Grilled", "Curry Cubes", "Raw Spiced"]),
+                    dietary_tags=json.dumps(["Vegetarian", "Gluten-Free", "High-Protein"]),
+                    emoji="🧀",
+                ),
+                Food(
+                    name="Organic Firm Tofu",
+                    barcode="8901234567817",
+                    category="Plant Proteins",
+                    nutrition_tags=json.dumps(["protein_rich", "mineral_sources", "iron_rich"]),
+                    description="Non-GMO organic firm soybean tofu providing all 9 essential amino acids and calcium sulfate.",
+                    price_paise=9900,
+                    unit="200 g",
+                    serving_size="100g",
+                    stock_qty=70,
+                    calories=144,
+                    protein_g=15.5,
+                    carbs_g=3.2,
+                    fat_g=8.0,
+                    fibre_g=2.3,
+                    vitamins_json=json.dumps({"calcium_mg": 350, "iron_mg": 2.7, "magnesium_mg": 58}),
+                    ingredients="Organic Non-GMO Soybeans, Filtered Water, Calcium Sulfate",
+                    storage_info="Keep submerged in fresh cold water refrigerated.",
+                    prep_methods=json.dumps(["Pan-Seared Cubes", "Stir-Fry", "Marinated Scramble"]),
+                    dietary_tags=json.dumps(["Vegan", "Gluten-Free", "Complete Protein"]),
+                    emoji="🧈",
+                ),
+                Food(
+                    name="Whole Finger Millet (Ragi / Ragulu)",
+                    barcode="8901234567821",
+                    category="Grains & Pseudocereals",
+                    nutrition_tags=json.dumps(["carb_rich", "mineral_sources", "fiber_rich"]),
+                    description="Whole red finger millet grains exceptionally rich in dietary calcium and low glycemic index.",
+                    price_paise=8500,
+                    unit="1 kg pack",
+                    serving_size="100g",
+                    stock_qty=90,
+                    calories=328,
+                    protein_g=7.3,
+                    carbs_g=72.0,
+                    fat_g=1.3,
+                    fibre_g=11.5,
+                    vitamins_json=json.dumps({"calcium_mg": 344, "iron_mg": 3.9, "potassium_mg": 408}),
+                    ingredients="100% Whole Finger Millet Grains (Eleusine coracana)",
+                    storage_info="Store in an airtight container in a dry pantry.",
+                    prep_methods=json.dumps(["Ragi Mudde / Sangati", "Malted Porridge", "Dosa / Roti Flour"]),
+                    dietary_tags=json.dumps(["Vegan", "Gluten-Free", "High-Calcium"]),
+                    emoji="🌾",
+                    approval_status="pending",
+                ),
+                Food(
+                    name="Fresh Organic Pumpkin (Gummadikaya)",
+                    barcode="8901234567822",
+                    category="Fresh produce",
+                    nutrition_tags=json.dumps(["vitamin_sources", "fiber_rich"]),
+                    description="Sweet orange-fleshed local pumpkin packed with Beta-Carotene (Vitamin A) and potassium.",
+                    price_paise=4500,
+                    unit="1 kg cut",
+                    serving_size="100g",
+                    stock_qty=65,
+                    calories=26,
+                    protein_g=1.0,
+                    carbs_g=6.5,
+                    fat_g=0.1,
+                    fibre_g=0.5,
+                    vitamins_json=json.dumps({"vitamin_a_iu": 8513, "potassium_mg": 340, "vitamin_c_mg": 9.0}),
+                    ingredients="100% Organically Farmed Pumpkin (Cucurbita moschata)",
+                    storage_info="Store cut sections wrapped tightly in refrigerator.",
+                    prep_methods=json.dumps(["Steamed Sambar Cubes", "Warm Roasted Mash", "Sweet Halwa"]),
+                    dietary_tags=json.dumps(["Vegan", "Gluten-Free", "Low-Calorie"]),
+                    emoji="🎃",
+                    approval_status="pending",
+                ),
+                Food(
+                    name="Farm Fresh Brown Eggs",
+                    barcode="8901234567823",
+                    category="Dairy & Probiotics",
+                    nutrition_tags=json.dumps(["protein_rich", "fat_sources", "vitamin_sources"]),
+                    description="Free-range brown eggs supplying complete bioavailable protein, choline, and essential amino acids.",
+                    price_paise=6500,
+                    unit="6 pcs carton",
+                    serving_size="100g (approx 2 eggs)",
+                    stock_qty=80,
+                    calories=143,
+                    protein_g=12.6,
+                    carbs_g=0.7,
+                    fat_g=9.5,
+                    fibre_g=0.0,
+                    vitamins_json=json.dumps({"choline_mg": 294, "vitamin_b12_mcg": 1.1, "iron_mg": 1.8}),
+                    ingredients="100% Fresh Whole Hen Eggs",
+                    storage_info="Store refrigerated at 4°C pointy end down.",
+                    prep_methods=json.dumps(["Soft Boiled (6 mins)", "Poached", "Scrambled with Pepper"]),
+                    dietary_tags=json.dumps(["High-Protein", "Keto-Friendly"]),
+                    emoji="🥚",
+                    approval_status="pending",
+                ),
+                Food(
+                    name="Raw Walnut Halves",
+                    barcode="8901234567824",
+                    category="Nuts & Seeds",
+                    nutrition_tags=json.dumps(["fat_sources", "protein_rich", "mineral_sources"]),
+                    description="Crisp premium walnut halves high in plant-based Omega-3 ALA fatty acids and polyphenols.",
+                    price_paise=38000,
+                    unit="250g pouch",
+                    serving_size="30g",
+                    stock_qty=50,
+                    calories=654,
+                    protein_g=15.2,
+                    carbs_g=13.7,
+                    fat_g=65.2,
+                    fibre_g=6.7,
+                    vitamins_json=json.dumps({"omega3_ala_g": 9.1, "magnesium_mg": 158, "phosphorus_mg": 346}),
+                    ingredients="100% Raw Unsalted Walnut Halves (Juglans regia)",
+                    storage_info="Refrigerate in an airtight glass jar to prevent oxidation.",
+                    prep_methods=json.dumps(["Raw Morning Snack", "Chopped Salad Topping", "Smoothie Blend"]),
+                    dietary_tags=json.dumps(["Vegan", "Keto", "Brain-Health"]),
+                    emoji="🥜",
+                    approval_status="pending",
+                ),
+                Food(
+                    name="A2 Cultured Desi Cow Ghee",
+                    barcode="8901234567825",
+                    category="Healthy Oils & Fats",
+                    nutrition_tags=json.dumps(["fat_sources"]),
+                    description="Artisanal bilona ghee made from cultured A2 cow milk, rich in butyric acid and fat-soluble vitamins.",
+                    price_paise=69000,
+                    unit="500 ml jar",
+                    serving_size="15ml",
+                    stock_qty=40,
+                    calories=897,
+                    protein_g=0.0,
+                    carbs_g=0.0,
+                    fat_g=99.7,
+                    fibre_g=0.0,
+                    vitamins_json=json.dumps({"butyric_acid_g": 3.2, "vitamin_a_mcg": 653, "cla_g": 1.1}),
+                    ingredients="100% Cultured Grass-Fed A2 Cow Milk Fat",
+                    storage_info="Store at room temperature in a dry glass jar. Use dry spoon.",
+                    prep_methods=json.dumps(["Warm Dal Drizzle", "Medicinal Tadka", "Morning Bullet Coffee"]),
+                    dietary_tags=json.dumps(["Vegetarian", "Keto", "Traditional Ayurvedic"]),
+                    emoji="🧈",
+                    approval_status="pending",
+                ),
+                Food(
+                    name="Golden Roasted Flax Seeds",
+                    barcode="8901234567826",
+                    category="Nuts & Seeds",
+                    nutrition_tags=json.dumps(["fiber_rich", "fat_sources", "mineral_sources"]),
+                    description="Slow-roasted golden flax seeds rich in soluble mucilage fiber and heart-protective lignans.",
+                    price_paise=14000,
+                    unit="250g jar",
+                    serving_size="20g",
+                    stock_qty=70,
+                    calories=534,
+                    protein_g=18.3,
+                    carbs_g=28.9,
+                    fat_g=42.2,
+                    fibre_g=27.3,
+                    vitamins_json=json.dumps({"omega3_ala_g": 22.8, "lignans_mg": 300, "magnesium_mg": 392}),
+                    ingredients="100% Certified Golden Flax Seeds (Linum usitatissimum)",
+                    storage_info="Store in an airtight jar in a cool, dry cabinet.",
+                    prep_methods=json.dumps(["Fresh Ground Meal", "Yoghurt Sprinkle", "Warm Water Infusion"]),
+                    dietary_tags=json.dumps(["Vegan", "Gluten-Free", "High-Fiber"]),
+                    emoji="✨",
+                    approval_status="pending",
+                ),
+                Food(
+                    name="Whole Red Masoor Lentils",
+                    barcode="8901234567827",
+                    category="Dal and pulses",
+                    nutrition_tags=json.dumps(["protein_rich", "iron_rich", "fiber_rich"]),
+                    description="Unpolished whole red masoor lentils rich in Folate, iron, and slow-burning complex carbs.",
+                    price_paise=13500,
+                    unit="1 kg pack",
+                    serving_size="100g raw",
+                    stock_qty=85,
+                    calories=343,
+                    protein_g=25.8,
+                    carbs_g=60.1,
+                    fat_g=1.1,
+                    fibre_g=10.8,
+                    vitamins_json=json.dumps({"iron_mg": 7.5, "folate_mcg": 479, "potassium_mg": 677}),
+                    ingredients="100% Whole Brown-Skinned Red Lentils (Lens culinaris)",
+                    storage_info="Keep in an airtight pantry canister.",
+                    prep_methods=json.dumps(["Pressure Cooked Tadka Dal", "Sprouted Salad", "Hearty Lentil Soup"]),
+                    dietary_tags=json.dumps(["Vegan", "Gluten-Free", "High-Protein"]),
+                    emoji="🫘",
+                    approval_status="pending",
+                ),
+                Food(
+                    name="Unpolished Single-Origin Brown Rice",
+                    barcode="8901234567828",
+                    category="Grains & Pseudocereals",
+                    nutrition_tags=json.dumps(["carb_rich", "fiber_rich", "mineral_sources"]),
+                    description="Traditional unpolished whole grain rice retaining bran and germ for sustained glucose stability.",
+                    price_paise=9500,
+                    unit="1 kg pack",
+                    serving_size="100g cooked",
+                    stock_qty=95,
+                    calories=354,
+                    protein_g=7.9,
+                    carbs_g=76.5,
+                    fat_g=2.7,
+                    fibre_g=3.5,
+                    vitamins_json=json.dumps({"thiamine_mg": 0.41, "magnesium_mg": 143, "phosphorus_mg": 264}),
+                    ingredients="100% Single-Origin Unpolished Brown Rice (Oryza sativa)",
+                    storage_info="Store in a cool dry place.",
+                    prep_methods=json.dumps(["Soaked Simmer (35 mins)", "Wholesome Khichdi", "Steamed Meal Base"]),
+                    dietary_tags=json.dumps(["Vegan", "Gluten-Free", "Low-GI"]),
+                    emoji="🍚",
+                    approval_status="pending",
+                ),
+                Food(
+                    name="Traditional Clay Pot Desi Curd",
+                    barcode="8901234567829",
+                    category="Dairy & Probiotics",
+                    nutrition_tags=json.dumps(["protein_rich", "calcium_rich"]),
+                    description="Naturally fermented desi cow milk curd set in porous terracotta pots for cooling probiotic gut health.",
+                    price_paise=6000,
+                    unit="500g clay pot",
+                    serving_size="100g",
+                    stock_qty=50,
+                    calories=61,
+                    protein_g=3.5,
+                    carbs_g=4.7,
+                    fat_g=3.3,
+                    fibre_g=0.0,
+                    vitamins_json=json.dumps({"calcium_mg": 121, "phosphorus_mg": 95, "vitamin_b12_mcg": 0.4}),
+                    ingredients="Pasteurized Whole Cow Milk, Lactic Culture Starter",
+                    storage_info="Refrigerate at 2°C to 4°C. Consume within 3 days.",
+                    prep_methods=json.dumps(["Chilled with Cumin Salt", "Buttermilk Majjiga", "Curd Rice (Thayir Sadam)"]),
+                    dietary_tags=json.dumps(["Vegetarian", "Gut-Health", "Cooling"]),
+                    emoji="🍶",
+                    approval_status="pending",
+                ),
+                Food(
+                    name="Cold-Pressed Wood Churned Sesame Oil",
+                    barcode="8901234567830",
+                    category="Healthy Oils & Fats",
+                    nutrition_tags=json.dumps(["fat_sources"]),
+                    description="Unrefined wood-pressed (vaagai marachekku) sesame oil rich in antioxidant Sesamol and lignans.",
+                    price_paise=23000,
+                    unit="500 ml bottle",
+                    serving_size="15ml",
+                    stock_qty=45,
+                    calories=884,
+                    protein_g=0.0,
+                    carbs_g=0.0,
+                    fat_g=100.0,
+                    fibre_g=0.0,
+                    vitamins_json=json.dumps({"sesamol_mg": 15.0, "vitamin_e_mg": 1.4, "mufa_g": 39.7}),
+                    ingredients="100% First-Press Native Sesame Seeds (Sesamum indicum)",
+                    storage_info="Amber glass bottle in cool cabinet away from heat.",
+                    prep_methods=json.dumps(["Traditional Idli Podi Drizzle", "Low-Heat Sauté", "Tempering"]),
+                    dietary_tags=json.dumps(["Vegan", "Unrefined", "Heart-Healthy"]),
+                    emoji="🫒",
+                    approval_status="pending",
+                ),
             ]
-            session.add_all(catalog_foods)
+            existing_barcodes = set(session.scalars(select(Food.barcode)).all())
+            existing_names = set(session.scalars(select(Food.name)).all())
+            for f in catalog_foods:
+                if (f.barcode and f.barcode in existing_barcodes) or f.name in existing_names:
+                    continue
+                session.add(f)
             session.commit()
 
         # 3. Seed Calin Pack Tiers
@@ -1315,7 +1764,8 @@ def register(
     if session.scalar(select(User).where(User.email == email_clean)):
         raise HTTPException(status_code=409, detail="Email already registered")
 
-    user_role = payload.role if payload.role in [r.value for r in Role] else Role.user.value
+    # Prevent privilege escalation: public registrations are strictly assigned Role.user
+    user_role = Role.user.value
     user = User(
         name=payload.name.strip(),
         email=email_clean,
@@ -1450,9 +1900,19 @@ def save_profile(
     user: User = Depends(current_user),
     session: Session = Depends(db),
 ) -> dict[str, Any]:
+    if payload.age < 18:
+        raise HTTPException(
+            status_code=422,
+            detail="Calin Pack personalized dietary targets require adult age (18+). Please consult a qualified pediatric dietitian."
+        )
+
     # Scientific Mifflin-St Jeor Equation
     bmr = 10 * payload.weight_kg + 6.25 * payload.height_cm - 5 * payload.age + (5 if payload.sex == "male" else -161)
-    daily_calories = round(bmr * payload.activity_level)
+    raw_calories = round(bmr * payload.activity_level)
+
+    # Caloric safety floors: > 1,200 kcal for women, > 1,500 kcal for men
+    safety_floor = 1500 if payload.sex == "male" else 1200
+    daily_calories = max(raw_calories, safety_floor)
 
     profile = session.scalar(select(NutritionProfile).where(NutritionProfile.user_id == user.id))
     if profile is None:
@@ -1492,6 +1952,7 @@ def save_profile(
         "calorie_target": daily_calories,
         "calculation_formula": "Mifflin-St Jeor: 10*weight(kg) + 6.25*height(cm) - 5*age + (5 male / -161 female)",
         "activity_multiplier": payload.activity_level,
+        "safety_floor_applied": daily_calories > raw_calories,
         "version": "mifflin-st-jeor-v1",
         "goal": profile.goal,
         "disclaimer": "Scientific estimation for dietary planning. Not a medical prescription or guaranteed outcome.",
@@ -1521,6 +1982,35 @@ def get_profile(
         "budget_paise": profile.budget_paise,
         "goal": profile.goal,
         "calculation_version": profile.calculation_version,
+        "consent_revoked_at": profile.consent_revoked_at.isoformat() if profile.consent_revoked_at else None,
+    }
+
+
+@app.post("/api/profile/revoke-consent")
+@app.delete("/api/profile/consent")
+def revoke_profile_consent(
+    user: User = Depends(current_user),
+    session: Session = Depends(db),
+) -> dict[str, Any]:
+    profile = session.scalar(select(NutritionProfile).where(NutritionProfile.user_id == user.id))
+    if not profile:
+        raise HTTPException(status_code=404, detail="Nutrition profile not found")
+    profile.consent_revoked_at = datetime.now(timezone.utc)
+    profile.allergies = "None"
+    profile.food_preferences = "General"
+    session.add(
+        AuditLog(
+            user_id=user.id,
+            action="health_consent_revoked",
+            entity_type="nutrition_profile",
+            entity_id=profile.id,
+            details=json.dumps({"revoked_at": profile.consent_revoked_at.isoformat()}),
+        )
+    )
+    session.commit()
+    return {
+        "message": "Health data consent revoked successfully.",
+        "consent_revoked_at": profile.consent_revoked_at.isoformat(),
     }
 
 
@@ -2123,6 +2613,50 @@ def get_order_detail(
     }
 
 
+@app.post("/api/orders/{order_id}/cancel")
+def cancel_demo_order(
+    order_id: str,
+    user: User = Depends(current_user),
+    session: Session = Depends(db),
+) -> dict[str, Any]:
+    order = session.get(Order, order_id)
+    if not order or (order.user_id != user.id and user.role != Role.admin.value):
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    if order.status == "cancelled_demo":
+        raise HTTPException(status_code=400, detail="Order is already cancelled")
+
+    # Restore reserved stock for food items in order
+    items = json.loads(order.items_json or "[]")
+    for item in items:
+        food_id = item.get("food_id")
+        qty = item.get("quantity", 0)
+        if food_id and qty > 0:
+            food = session.get(Food, food_id)
+            if food:
+                food.stock_qty += qty
+
+    old_status = order.status
+    order.status = "cancelled_demo"
+    order.updated_at = datetime.now(timezone.utc)
+
+    session.add(
+        AuditLog(
+            user_id=user.id,
+            action="order_cancelled_demo",
+            entity_type="order",
+            entity_id=order.id,
+            details=json.dumps({"old_status": old_status, "new_status": "cancelled_demo", "restored_items_count": len(items)}),
+        )
+    )
+    session.commit()
+    return {
+        "id": order.id,
+        "status": order.status,
+        "message": "Demo order cancelled successfully. Reserved inventory restored.",
+    }
+
+
 # Calin Pack Subscriptions
 @app.get("/api/subscriptions")
 def get_subscriptions(
@@ -2224,11 +2758,22 @@ def get_user_nutritionist_requests(
     user: User = Depends(current_user),
     session: Session = Depends(db),
 ) -> List[dict[str, Any]]:
-    # If nutritionist role, view all; if customer, view own
-    if user.role == Role.nutritionist.value or user.role == Role.admin.value:
+    # If admin role, view all; if nutritionist, view assigned to them or unassigned queue; if customer, view own
+    if user.role == Role.admin.value:
         requests = session.scalars(select(NutritionistReviewRequest).order_by(NutritionistReviewRequest.created_at.desc())).all()
+    elif user.role == Role.nutritionist.value:
+        from sqlalchemy import or_
+        requests = session.scalars(
+            select(NutritionistReviewRequest)
+            .where(or_(NutritionistReviewRequest.nutritionist_id == user.id, NutritionistReviewRequest.nutritionist_id.is_(None)))
+            .order_by(NutritionistReviewRequest.created_at.desc())
+        ).all()
     else:
-        requests = session.scalars(select(NutritionistReviewRequest).where(NutritionistReviewRequest.user_id == user.id).order_by(NutritionistReviewRequest.created_at.desc())).all()
+        requests = session.scalars(
+            select(NutritionistReviewRequest)
+            .where(NutritionistReviewRequest.user_id == user.id)
+            .order_by(NutritionistReviewRequest.created_at.desc())
+        ).all()
 
     return [
         {
@@ -2448,3 +2993,26 @@ def admin_create_food(
     session.commit()
     session.refresh(food)
     return food
+
+
+@app.get("/api/admin/audit-logs")
+def admin_get_audit_logs(
+    limit: int = 50,
+    user: User = Depends(require_role([Role.admin.value])),
+    session: Session = Depends(db),
+) -> List[dict[str, Any]]:
+    logs = session.scalars(
+        select(AuditLog).order_by(AuditLog.created_at.desc()).limit(limit)
+    ).all()
+    return [
+        {
+            "id": l.id,
+            "user_id": l.user_id,
+            "action": l.action,
+            "entity_type": l.entity_type,
+            "entity_id": l.entity_id,
+            "details": json.loads(l.details or "{}"),
+            "created_at": l.created_at.isoformat(),
+        }
+        for l in logs
+    ]

@@ -1,0 +1,149 @@
+Nutriverse: The Global Nutrition Problem
+
+Scientific evidence for the macro problem and the personalization opportunity
+
+Research summary prepared for the Nutriverse concept • 20 August 2026
+
+1. Executive Summary
+
+Core conclusion: Nutrition is a global, measurable public-health problem, not merely an individual lifestyle issue. Malnutrition includes nutrient deficiencies, excesses and imbalances, undernutrition, overweight/obesity, and diet-related noncommunicable diseases. WHO reports large populations affected by these conditions, while systematic-review evidence consistently links healthier, nutrient-dense dietary patterns with lower risk of death.
+
+Best problem framing for Nutriverse: The problem is not simply that people 'do not eat enough nutrients.' The stronger scientific framing is that many people experience a mismatch between what they consume and what their bodies require—through deficiencies, excesses, poor diet quality, or inappropriate dietary patterns. Individual nutritional needs also vary with characteristics such as age, sex, lifestyle and physical activity.
+
+2. Why This Is a Macro Problem
+
+WHO states that every country is affected by one or more forms of malnutrition. The burden spans children, adults and older people, and creates health, social and economic consequences.
+
+Indicator
+
+Evidence
+
+Why it matters
+
+Adults overweight (2022)
+
+2.5 billion; 890 million were living with obesity
+
+Shows the scale of excess-energy/diet-related disease risk.
+
+Children under 5 stunted (2022)
+
+149 million
+
+Shows the scale of chronic undernutrition and impaired growth.
+
+Children under 5 wasted (2022)
+
+45 million
+
+Indicates acute/severe undernutrition.
+
+Under-5 deaths linked to undernutrition
+
+Nearly half
+
+Demonstrates that nutrition is linked to survival, especially in low- and middle-income countries.
+
+Micronutrient deficiency
+
+>50% of children under 5 and >2/3 of non-pregnant women of reproductive age are deficient in at least one key micronutrient
+
+Shows that adequate calories do not necessarily mean adequate nutrition.
+
+3. What the Science Says About Nutrient Adequacy
+
+Micronutrients—vitamins and minerals—are required in small amounts but are essential for normal growth and health. WHO notes that micronutrient deficiencies can cause serious health problems. It also explains that micronutrients enable the body to produce enzymes, hormones and other substances required for proper growth and development.
+
+This supports the biological pathway relevant to Nutriverse:
+
+Nutrient intake → Nutrient status → Cellular/metabolic & hormonal functions → Growth, immunity & metabolism → Disease risk → Healthy longevity
+
+4. Evidence Comparing Better vs. Poorer Dietary Patterns
+
+A major systematic review identified 153 articles, including 1 randomized clinical trial and 152 observational studies, involving adults and older adults from 28 countries. The review found strong evidence that dietary patterns emphasizing vegetables, fruits, legumes, nuts, whole grains, unsaturated vegetable oils, fish and, when included, lean meat/poultry were associated with a decreased risk of all-cause mortality.
+
+Research evidence
+
+Finding
+
+Interpretation for Nutriverse
+
+Systematic review: 153 articles
+
+Nutrient-dense dietary patterns were consistently associated with lower all-cause mortality.
+
+Diet quality has measurable population-level health associations.
+
+WHO micronutrient evidence
+
+More than half of children under 5 and over two-thirds of non-pregnant women of reproductive age are deficient in at least one key micronutrient.
+
+There is a large gap between food consumption and nutrient adequacy.
+
+Dietary fibre evidence
+
+Higher fibre intake is associated in meta-analytic research with lower mortality risk.
+
+Individual nutrient components can be linked to measurable health outcomes.
+
+WHO malnutrition framework
+
+Malnutrition includes deficiencies, excesses and imbalances—not only lack of food.
+
+The product should address balance and adequacy, not just calorie intake.
+
+5. The Key Insight: Calories Are Not the Same as Nutritional Adequacy
+
+A person can consume enough calories while still having an inadequate intake or status of specific vitamins, minerals, protein, fibre or essential fatty acids. Conversely, excessive energy intake can coexist with poor micronutrient quality. This is one reason WHO treats malnutrition as a broad concept that includes both deficiency and excess.
+
+Therefore, the Nutriverse problem should not be framed as 'people need more food.' It should be framed as 'people need the right nutrients, in appropriate amounts, for their individual circumstances.'
+
+6. The Personalization Gap
+
+WHO notes that the composition of a healthy diet varies according to individual characteristics such as age, sex, lifestyle and physical activity, as well as local and cultural factors. This creates a clear communication and decision-making challenge: general healthy-eating advice does not automatically tell an individual exactly which nutrients, foods and quantities are appropriate for that person.
+
+Potential Nutriverse positioning: Nutriverse can aim to translate nutritional science into clearer, personalized guidance—connecting an individual's characteristics and goals to nutrient requirements, food choices and measurable health outcomes.
+
+7. Recommended Problem Statement for the PPT
+
+“Billions of people worldwide are affected by malnutrition in its different forms—from micronutrient deficiencies and impaired growth to overweight, obesity and diet-related chronic disease. Scientific evidence links higher-quality, nutrient-dense dietary patterns with better health and lower mortality risk. Yet nutritional needs vary between individuals, creating a gap between knowing what a healthy diet is and knowing what is appropriate for a specific person.”
+
+8. What Not to Claim
+
+Do not claim that nutrient deficiency is the single cause of reduced human lifespan.
+
+Do not claim that smaller body size itself is the main cause of shorter lifespan.
+
+Do not convert an observational relative-risk statistic into a claim that a person will live a specific percentage longer.
+
+Do not imply that Nutriverse can solve food insecurity or global hunger; its stronger potential role is in nutrition understanding, adequacy and personalization.
+
+9. Strongest Numbers to Use on One PPT Slide
+
+2.5 BILLION — adults worldwide were overweight in 2022; 890 million were living with obesity.
+
+149 MILLION — children under 5 were stunted in 2022.
+
+NEARLY 50% — of deaths among children under 5 are linked to undernutrition, according to WHO.
+
+>50% — of children under 5 are deficient in at least one key micronutrient.
+
+>2/3 — of non-pregnant women of reproductive age are deficient in at least one key micronutrient.
+
+10. References
+
+WHO — Malnutrition Fact Sheet (2024)https://www.who.int/news-room/fact-sheets/detail/malnutrition
+
+WHO — Healthy Diet Fact Sheet (current)https://www.who.int/news-room/fact-sheets/detail/healthy-diet
+
+WHO — Micronutrientshttps://www.who.int/health-topics/micronutrients
+
+WHO — Child Mortality Under 5 Years (2026)https://www.who.int/news-room/fact-sheets/detail/child-mortality-under-5-years
+
+Evaluation of Dietary Patterns and All-Cause Mortality: A Systematic Reviewhttps://pubmed.ncbi.nlm.nih.gov/34463743/
+
+Dietary Patterns and All-Cause Mortality: A Systematic Reviewhttps://pubmed.ncbi.nlm.nih.gov/35258870/
+
+Bottom Line
+
+The strongest scientific case for Nutriverse is not that one nutrient determines lifespan. The evidence supports a broader and more defensible claim: malnutrition and poor diet quality are global problems; nutrient deficiencies and imbalances affect large populations; healthier dietary patterns are associated with better health and lower mortality; and individual nutritional needs differ. Nutriverse can therefore be positioned around making nutrition more understandable and personalized.

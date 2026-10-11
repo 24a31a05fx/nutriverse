@@ -135,6 +135,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children, activeTabOverride 
         isOpen={authModalOpen}
         onClose={() => setAuthModalOpen(false)}
         onAuthSuccess={async (user) => {
+          setAuthModalOpen(false);
           await onAuthSuccess(user);
         }}
       />

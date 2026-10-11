@@ -1,0 +1,31 @@
+sku,storage_path,source_url,creator,licence,date_checked,approval_status,alt_text
+NV-POTA-001,/assets/products/potato.jpg,https://images.unsplash.com/photo-1518977676601-b53f82aba655,Lars Blankers,Unsplash Free Commercial License,2026-10-11,approved,Fresh whole unpeeled potatoes in natural light
+NV-CHIC-001,/assets/products/chickpeas.jpg,https://images.unsplash.com/photo-1515543237350-b3eea1ec8082,Milada Vigerova,Unsplash Free Commercial License,2026-10-11,approved,Organic desi chickpeas in ceramic bowl
+NV-SPIN-001,/assets/products/spinach.jpg,https://images.unsplash.com/photo-1576045057995-568f588f82fb,Elianna Friedman,Unsplash Free Commercial License,2026-10-11,approved,Tender organic green baby spinach leaves
+NV-SWPO-001,/assets/products/sweet-potato.jpg,,,Unsplash Free Commercial License,2026-10-11,pending,Roasted sweet potato with amber flesh
+NV-GYOG-001,/assets/products/greek-yoghurt.jpg,https://images.unsplash.com/photo-1488477181946-6428a0291777,Sara Cervera,Unsplash Free Commercial License,2026-10-11,approved,Creamy probiotic Greek yoghurt in bowl
+NV-QUIN-001,/assets/products/quinoa.jpg,https://images.unsplash.com/photo-1586201375761-83865001e31c,Jocelyn Morales,Unsplash Free Commercial License,2026-10-11,approved,Organic white quinoa grains
+NV-BLUE-001,/assets/products/blueberries.jpg,https://images.unsplash.com/photo-1498557850523-fd3d118b962e,Veeterzy,Unsplash Free Commercial License,2026-10-11,approved,Fresh ripe wild blueberries in wooden bowl
+NV-ALMD-001,/assets/products/almonds.jpg,https://images.unsplash.com/photo-1508061252445-5350f3ab0a55,Remi Yuan,Unsplash Free Commercial License,2026-10-11,approved,Raw California almonds in neutral background
+NV-CHIA-001,/assets/products/chia-seeds.jpg,https://images.unsplash.com/photo-1588615419957-61c072230138,Nadezhda Diskant,Unsplash Free Commercial License,2026-10-11,approved,Organic black chia seeds in glass spoon
+NV-MOON-001,/assets/products/green-moong.jpg,https://images.unsplash.com/photo-1585994192701-f1a505c8574a,Mockup Graphics,Unsplash Free Commercial License,2026-10-11,approved,Sprouted green moong dal in earthen bowl
+NV-MUST-001,/assets/products/mustard-oil.jpg,https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5,Roberta Sorge,Unsplash Free Commercial License,2026-10-11,approved,Cold pressed golden mustard oil bottle
+NV-OATS-001,/assets/products/rolled-oats.jpg,https://images.unsplash.com/photo-1586444248902-2f64eddc13df,Margarita Zueva,Unsplash Free Commercial License,2026-10-11,approved,Rolled oats flakes in ceramic bowl
+NV-BROC-001,/assets/products/broccoli.jpg,https://images.unsplash.com/photo-1459411621453-7b03977f4bfc,Annie Spratt,Unsplash Free Commercial License,2026-10-11,approved,Fresh organic broccoli head with florets
+NV-ONIO-001,/assets/products/red-onions.jpg,https://images.unsplash.com/photo-1618512496248-a07fe83aa8cb,K8,Unsplash Free Commercial License,2026-10-11,approved,Farm fresh red onions with crisp outer skins
+NV-GARL-001,/assets/products/garlic.jpg,https://images.unsplash.com/photo-1540148426945-6cf22a6b2383,Gaelle Marcel,Unsplash Free Commercial License,2026-10-11,approved,Fresh raw garlic bulbs on rustic surface
+NV-LEMO-001,/assets/products/lemons.jpg,https://images.unsplash.com/photo-1533089860892-a7c6f0a88666,Hanan Khader,Unsplash Free Commercial License,2026-10-11,approved,Ripe yellow lemons with fresh zest
+NV-GING-001,/assets/products/ginger.jpg,https://images.unsplash.com/photo-1615485290382-441e4d049cb5,Mockaroon,Unsplash Free Commercial License,2026-10-11,approved,Whole organic fresh ginger root
+NV-MUSK-001,/assets/products/muskmelon.jpg,https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e,Mae Mu,Unsplash Free Commercial License,2026-10-11,approved,Sweet muskmelon halved showing seeds
+NV-PANE-001,/assets/products/paneer.jpg,,,Owned Local Sourcing,2026-10-11,pending,Fresh malai paneer block
+NV-TOFU-001,/assets/products/tofu.jpg,,,Owned Local Sourcing,2026-10-11,pending,Organic firm tofu block
+NV-RAGI-001,/assets/products/ragi.jpg,,,Owned Local Sourcing,2026-10-11,pending,Whole finger millet (Ragi / Ragulu) grains
+NV-PUMP-001,/assets/products/pumpkin.jpg,,,Owned Local Sourcing,2026-10-11,pending,Fresh organic pumpkin (Gummadikaya) slice
+NV-EGGS-001,/assets/products/eggs.jpg,,,Owned Local Sourcing,2026-10-11,pending,Farm fresh brown eggs
+NV-WALN-001,/assets/products/walnuts.jpg,,,Owned Local Sourcing,2026-10-11,pending,Raw walnut halves
+NV-GHEE-001,/assets/products/desi-ghee.jpg,,,Owned Local Sourcing,2026-10-11,pending,A2 cultured desi cow ghee jar
+NV-FLAX-001,/assets/products/flax-seeds.jpg,,,Owned Local Sourcing,2026-10-11,pending,Golden roasted flax seeds
+NV-LENT-001,/assets/products/red-lentils.jpg,,,Owned Local Sourcing,2026-10-11,pending,Whole red masoor lentils
+NV-BROW-001,/assets/products/brown-rice.jpg,,,Owned Local Sourcing,2026-10-11,pending,Unpolished single origin brown rice
+NV-CURD-001,/assets/products/desi-curd.jpg,,,Owned Local Sourcing,2026-10-11,pending,Traditional clay pot set curd
+NV-SEAM-001,/assets/products/sesame-oil.jpg,,,Owned Local Sourcing,2026-10-11,pending,Cold pressed wood churned sesame til oil

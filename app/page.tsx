@@ -17,89 +17,83 @@ import { OnboardingModal } from "@/components/OnboardingModal";
 import { CartDrawer } from "@/components/CartDrawer";
 import { AssistantDrawer } from "@/components/AssistantDrawer";
 import { AuthModal } from "@/components/AuthModal";
+import { useNutriverse } from "@/components/NutriverseProvider";
+import { LocationModal, DeliveryLocation, DEFAULT_LOCATION } from "@/components/LocationModal";
+import { BottomNav } from "@/components/BottomNav";
 
 import { api, User, NutritionProfile, Food, Recipe, CartResponse, logoutUser } from "@/lib/api";
+import { CatalogProduct } from "@/src/data/catalog";
 import { Bot, Sparkles, Heart, Activity } from "lucide-react";
 
 export default function Home() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<ActiveTab>("storefront");
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<NutritionProfile | null>(null);
-  const [cart, setCart] = useState<CartResponse | null>(null);
-  const [allFoods, setAllFoods] = useState<Food[]>([]);
-  const [allRecipes, setAllRecipes] = useState<Recipe[]>([]);
+  const {
+    currentUser,
+    setCurrentUser,
+    profile,
+    setProfile,
+    cart,
+    allFoods,
+    allRecipes,
+    refreshCatalog,
+    refreshCart,
+    refreshProfile,
+    handleLogout,
+    authModalOpen,
+    setAuthModalOpen,
+    cartOpen,
+    setCartOpen,
+    assistantOpen,
+    setAssistantOpen,
+    onboardingOpen,
+    setOnboardingOpen,
+  } = useNutriverse();
+
+  // Search & Location & Wishlist
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedLocation, setSelectedLocation] = useState<DeliveryLocation>(() => {
+    if (typeof window === "undefined") return DEFAULT_LOCATION;
+    try {
+      const saved = localStorage.getItem("nutriverse_location");
+      return saved ? JSON.parse(saved) : DEFAULT_LOCATION;
+    } catch {
+      return DEFAULT_LOCATION;
+    }
+  });
+  const [wishlistCount, setWishlistCount] = useState<number>(() => {
+    if (typeof window === "undefined") return 0;
+    try {
+      const saved = JSON.parse(localStorage.getItem("nutriverse_wishlist") || "[]");
+      return saved.length;
+    } catch {
+      return 0;
+    }
+  });
 
   // Modals & Drawers
   const [selectedFood, setSelectedFood] = useState<Food | null>(null);
-  const [authModalOpen, setAuthModalOpen] = useState(false);
-  const [onboardingOpen, setOnboardingOpen] = useState(false);
-  const [cartOpen, setCartOpen] = useState(false);
-  const [assistantOpen, setAssistantOpen] = useState(false);
+  const [locationModalOpen, setLocationModalOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Load Catalog Data
-  const refreshCatalog = useCallback(async () => {
+  // Sync wishlist updates from localStorage
+  const refreshWishlistCount = useCallback(() => {
+    if (typeof window === "undefined") return;
     try {
-      const [foodsData, recipesData] = await Promise.all([
-        api<Food[]>("/foods"),
-        api<Recipe[]>("/recipes"),
-      ]);
-      setAllFoods(foodsData);
-      setAllRecipes(recipesData);
-    } catch (err) {
-      console.error("Error loading foods catalog:", err);
-    }
-  }, []);
-
-  // Load Cart Data
-  const refreshCart = useCallback(async () => {
-    try {
-      const cartData = await api<CartResponse>("/cart");
-      setCart(cartData);
+      const saved = JSON.parse(localStorage.getItem("nutriverse_wishlist") || "[]");
+      setWishlistCount(saved.length);
     } catch {
-      setCart(null);
+      setWishlistCount(0);
     }
   }, []);
 
-  // Load User Profile
-  const refreshProfile = useCallback(async () => {
-    try {
-      const p = await api<NutritionProfile>("/profile");
-      setProfile(p);
-    } catch {
-      setProfile(null);
-    }
-  }, []);
-
-  // Initialize Session: Check cookie session without forced auto-login
   useEffect(() => {
-    const initSession = async () => {
-      try {
-        const user = await api<User>("/auth/me");
-        if (user) {
-          setCurrentUser(user);
-          await Promise.all([refreshProfile(), refreshCart()]);
-        }
-      } catch {
-        // Guest mode: catalog, packs, recipes, combinations, scanner are public
-        setCurrentUser(null);
-        setProfile(null);
-        setCart(null);
-      }
+    const handleStorageChange = () => {
+      refreshWishlistCount();
     };
-
-    refreshCatalog();
-    initSession();
-  }, [refreshCatalog, refreshCart, refreshProfile]);
-
-  const handleLogout = async () => {
-    await logoutUser();
-    setCurrentUser(null);
-    setProfile(null);
-    setCart(null);
-    setActiveTab("storefront");
-  };
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, [refreshWishlistCount]);
 
   const handleAddToCart = async (food: Food, quantity = 1) => {
     if (!currentUser) {
@@ -119,6 +113,83 @@ export default function Home() {
       setCartOpen(true);
     } catch (err: any) {
       alert(err?.message || "Failed to add food to cart");
+    }
+  };
+
+  const handleAddCatalogProductToCart = async (product: CatalogProduct, unit: string, qty: number) => {
+    // Try to find matching food in allFoods by barcode, id, or name prefix
+    const matched = allFoods.find(
+      (f) =>
+        f.id === product.id ||
+        (product.barcode && f.barcode === product.barcode) ||
+        f.name.toLowerCase().includes(product.name.toLowerCase().split(" ")[0])
+    );
+    if (matched) {
+      await handleAddToCart(matched, qty);
+    } else {
+      const synthesizedFood: Food = {
+        id: product.id,
+        name: product.name,
+        barcode: product.barcode,
+        category: product.category,
+        description: product.description,
+        price_paise: product.pricePaise,
+        unit: product.unit,
+        serving_size: product.servingSize,
+        stock_qty: product.stockQty || 100,
+        calories: product.calories,
+        protein_g: product.proteinG,
+        carbs_g: product.carbsG,
+        fat_g: product.fatG,
+        fibre_g: product.fibreG,
+        vitamins_json: JSON.stringify({}),
+        ingredients: product.description,
+        storage_info: "Keep in cool, dry place.",
+        prep_methods: JSON.stringify(["Fresh Consumption", "Steamed"]),
+        dietary_tags: JSON.stringify(product.dietaryTags || ["Vegetarian"]),
+        emoji: "🥗",
+        active: true,
+        nutrition_tags: JSON.stringify(product.nutritionTags || []),
+      };
+      await handleAddToCart(synthesizedFood, qty);
+    }
+  };
+
+  const handleOpenCatalogProductDetail = (product: CatalogProduct) => {
+    const matched = allFoods.find(
+      (f) =>
+        f.id === product.id ||
+        (product.barcode && f.barcode === product.barcode) ||
+        f.name.toLowerCase().includes(product.name.toLowerCase().split(" ")[0])
+    );
+    if (matched) {
+      setSelectedFood(matched);
+    } else {
+      const synthesizedFood: Food = {
+        id: product.id,
+        name: product.name,
+        barcode: product.barcode,
+        category: product.category,
+        description: product.description,
+        price_paise: product.pricePaise,
+        unit: product.unit,
+        serving_size: product.servingSize,
+        stock_qty: product.stockQty || 100,
+        calories: product.calories,
+        protein_g: product.proteinG,
+        carbs_g: product.carbsG,
+        fat_g: product.fatG,
+        fibre_g: product.fibreG,
+        vitamins_json: JSON.stringify({}),
+        ingredients: product.description,
+        storage_info: "Keep in cool, dry place.",
+        prep_methods: JSON.stringify(["Fresh Consumption", "Steamed"]),
+        dietary_tags: JSON.stringify(product.dietaryTags || ["Vegetarian"]),
+        emoji: "🥗",
+        active: true,
+        nutrition_tags: JSON.stringify(product.nutritionTags || []),
+      };
+      setSelectedFood(synthesizedFood);
     }
   };
 
@@ -168,11 +239,19 @@ export default function Home() {
     }
   };
 
+  const handleSelectLocation = (loc: DeliveryLocation) => {
+    setSelectedLocation(loc);
+    try {
+      localStorage.setItem("nutriverse_location", JSON.stringify(loc));
+    } catch {}
+  };
+
   const cartItemsCount = cart ? cart.items.reduce((acc, it) => acc + it.quantity, 0) : 0;
+  const cartTotalPaise = cart ? cart.total_paise : 0;
 
   return (
     <div className="min-h-screen flex flex-col bg-[#faf7f0] text-[#111a14] selection:bg-emerald-200">
-      {/* 1. Master Application Header */}
+      {/* 1. Master Application Header (Matching Reference B) */}
       <AppHeader
         activeTab={activeTab}
         onTabChange={(tab) => {
@@ -188,6 +267,21 @@ export default function Home() {
         onLogout={handleLogout}
         mobileOpen={mobileMenuOpen}
         setMobileOpen={setMobileMenuOpen}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        onSearchSubmit={(q) => {
+          setSearchQuery(q);
+          if (activeTab !== "storefront") {
+            setActiveTab("storefront");
+          }
+        }}
+        selectedLocation={selectedLocation}
+        onOpenLocationModal={() => setLocationModalOpen(true)}
+        wishlistCount={wishlistCount}
+        onOpenWishlist={() => {
+          setActiveTab("explorer");
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }}
       />
 
       {/* 2. Main View Container (Based on Active Tab) */}
@@ -195,19 +289,39 @@ export default function Home() {
         {activeTab === "storefront" && (
           <StorefrontView
             onNavigateTab={(tab) => {
-              if (tab === "explorer") router.push("/explore");
-              else if (tab === "packs") router.push("/packs");
-              else if (tab === "recipes") router.push("/recipes");
-              else if (tab === "combinations") router.push("/combinations");
-              else if (tab === "scanner") router.push("/scanner");
-              else if (tab === "dashboard") router.push("/account");
-              else if (tab === "admin") router.push("/admin");
-              else {
+              if (tab === "explorer") {
+                setActiveTab("explorer");
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              } else if (tab === "packs") {
+                setActiveTab("packs");
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              } else if (tab === "recipes") {
+                setActiveTab("recipes");
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              } else if (tab === "combinations") {
+                setActiveTab("combinations");
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              } else if (tab === "scanner") {
+                setActiveTab("scanner");
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              } else if (tab === "dashboard") {
+                setActiveTab("dashboard");
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              } else if (tab === "admin") {
+                setActiveTab("admin");
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              } else {
                 setActiveTab(tab as ActiveTab);
                 window.scrollTo({ top: 0, behavior: "smooth" });
               }
             }}
             onOpenOnboarding={() => setOnboardingOpen(true)}
+            onAddToCart={handleAddCatalogProductToCart}
+            onOpenDetail={handleOpenCatalogProductDetail}
+            cartItems={cart?.items || []}
+            cartTotalPaise={cartTotalPaise}
+            onOpenCart={() => setCartOpen(true)}
+            searchFilter={searchQuery}
           />
         )}
 
@@ -274,16 +388,16 @@ export default function Home() {
       </main>
 
       {/* 3. Floating Assistant Trigger */}
-      <div className="fixed bottom-6 right-6 z-40">
+      <div className="fixed bottom-20 md:bottom-6 right-4 sm:right-6 z-30">
         <button
           type="button"
           onClick={() => setAssistantOpen(true)}
-          className="group flex items-center gap-2.5 px-4 py-3 bg-gradient-to-r from-emerald-800 to-teal-900 hover:from-emerald-700 hover:to-teal-800 text-white font-bold text-xs rounded-full shadow-xl hover:shadow-2xl transition transform hover:-translate-y-0.5 border border-emerald-600/40"
+          className="group flex items-center gap-2 px-3.5 py-2.5 sm:px-4 sm:py-3 bg-gradient-to-r from-emerald-800 to-teal-900 hover:from-emerald-700 hover:to-teal-800 text-white font-bold text-xs rounded-full shadow-xl hover:shadow-2xl transition transform hover:-translate-y-0.5 border border-emerald-600/40"
         >
-          <div className="w-6 h-6 rounded-full bg-emerald-400 text-emerald-950 flex items-center justify-center font-bold text-xs shadow-inner">
-            <Bot className="w-3.5 h-3.5" />
+          <div className="w-5 h-5 rounded-full bg-emerald-400 text-emerald-950 flex items-center justify-center font-bold text-xs shadow-inner">
+            <Bot className="w-3 h-3" />
           </div>
-          <span>Ask Nourish AI</span>
+          <span className="hidden sm:inline">Ask Nourish AI</span>
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
         </button>
       </div>
@@ -298,6 +412,13 @@ export default function Home() {
           setSelectedFood(null);
           setActiveTab("recipes");
         }}
+      />
+
+      <LocationModal
+        isOpen={locationModalOpen}
+        onClose={() => setLocationModalOpen(false)}
+        currentLocation={selectedLocation}
+        onSelectLocation={handleSelectLocation}
       />
 
       <OnboardingModal
@@ -331,6 +452,7 @@ export default function Home() {
         isOpen={authModalOpen}
         onClose={() => setAuthModalOpen(false)}
         onAuthSuccess={(user) => {
+          setAuthModalOpen(false);
           setCurrentUser(user);
           refreshProfile();
           refreshCart();
@@ -342,9 +464,22 @@ export default function Home() {
         }}
       />
 
-      {/* 5. Comprehensive Application Footer */}
-      <footer className="bg-emerald-950 text-white/90 pt-16 pb-12 border-t border-emerald-900/50">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 space-y-12">
+      {/* 5. Mobile Bottom Navigation (Matching Reference B) */}
+      <BottomNav
+        activeTab={activeTab}
+        onTabChange={(tab) => {
+          setActiveTab(tab);
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }}
+        cartCount={cartItemsCount}
+        onOpenCart={() => setCartOpen(true)}
+        currentUser={currentUser}
+        onOpenAuth={() => setAuthModalOpen(true)}
+      />
+
+      {/* 6. Comprehensive Application Footer */}
+      <footer className="bg-[#0c281c] text-white/90 pt-16 pb-24 md:pb-12 border-t border-[#1b4d36]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 space-y-12">
           <div className="grid grid-cols-2 md:grid-cols-5 gap-8">
             <div className="col-span-2 space-y-4">
               <div className="flex items-center gap-2">
@@ -357,80 +492,78 @@ export default function Home() {
                 Empowering individuals to understand their nutritional requirements, choose foods by biological contribution, and receive synergistic Calin Packs.
               </p>
               <div className="text-[11px] text-emerald-300 font-mono">
-                Mifflin–St Jeor Engine • EAN-13 Scanner • Nutritionist Guidance
+                Mifflin–St Jeor Engine • EAN-13 Scanner • ICMR-NIN 2020 RDA
               </div>
             </div>
 
             <div className="space-y-3">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-300">Explore</h4>
+              <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-300">Shop & Explore</h4>
               <ul className="space-y-2 text-xs text-gray-300">
                 <li>
-                  <button onClick={() => { setActiveTab("explorer"); window.scrollTo({ top: 0, behavior: "smooth" }); }} className="hover:text-white transition">
-                    Food Explorer
+                  <button onClick={() => { setActiveTab("storefront"); window.scrollTo({ top: 0, behavior: "smooth" }); }} className="hover:text-white transition cursor-pointer">
+                    Grocery Storefront
                   </button>
                 </li>
                 <li>
-                  <button onClick={() => { setActiveTab("packs"); window.scrollTo({ top: 0, behavior: "smooth" }); }} className="hover:text-white transition">
+                  <button onClick={() => { setActiveTab("explorer"); window.scrollTo({ top: 0, behavior: "smooth" }); }} className="hover:text-white transition cursor-pointer">
+                    Nutrient Explorer
+                  </button>
+                </li>
+                <li>
+                  <button onClick={() => { setActiveTab("packs"); window.scrollTo({ top: 0, behavior: "smooth" }); }} className="hover:text-white transition cursor-pointer">
                     Calin Packs
                   </button>
                 </li>
                 <li>
-                  <button onClick={() => { setActiveTab("recipes"); window.scrollTo({ top: 0, behavior: "smooth" }); }} className="hover:text-white transition">
+                  <button onClick={() => { setActiveTab("recipes"); window.scrollTo({ top: 0, behavior: "smooth" }); }} className="hover:text-white transition cursor-pointer">
                     Bio-Recipes
-                  </button>
-                </li>
-                <li>
-                  <button onClick={() => { setActiveTab("combinations"); window.scrollTo({ top: 0, behavior: "smooth" }); }} className="hover:text-white transition">
-                    Combinations
                   </button>
                 </li>
               </ul>
             </div>
 
             <div className="space-y-3">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-300">Intelligence</h4>
+              <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-300">Nutrition Tools</h4>
               <ul className="space-y-2 text-xs text-gray-300">
                 <li>
-                  <button onClick={() => { setActiveTab("scanner"); window.scrollTo({ top: 0, behavior: "smooth" }); }} className="hover:text-white transition">
+                  <button onClick={() => { setActiveTab("scanner"); window.scrollTo({ top: 0, behavior: "smooth" }); }} className="hover:text-white transition cursor-pointer">
                     Barcode Scanner
                   </button>
                 </li>
                 <li>
-                  <button onClick={() => setOnboardingOpen(true)} className="hover:text-white transition">
+                  <button onClick={() => setOnboardingOpen(true)} className="hover:text-white transition cursor-pointer">
                     BMR Calculator
                   </button>
                 </li>
                 <li>
-                  <button onClick={() => setAssistantOpen(true)} className="hover:text-white transition">
-                    Nourish AI Chat
+                  <button onClick={() => setAssistantOpen(true)} className="hover:text-white transition cursor-pointer">
+                    Ask Nourish AI
                   </button>
                 </li>
                 <li>
-                  <button onClick={() => { setActiveTab("dashboard"); window.scrollTo({ top: 0, behavior: "smooth" }); }} className="hover:text-white transition">
-                    Member Dashboard
+                  <button onClick={() => { setActiveTab("dashboard"); window.scrollTo({ top: 0, behavior: "smooth" }); }} className="hover:text-white transition cursor-pointer">
+                    My Account
                   </button>
                 </li>
               </ul>
             </div>
 
             <div className="space-y-3">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-300">Console Roles</h4>
+              <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-300">Service Area</h4>
               <ul className="space-y-2 text-xs text-gray-300">
-                <li>
-                  <button onClick={() => setAuthModalOpen(true)} className="hover:text-white transition">
-                    Switch User Role
+                <li className="text-[11px] text-emerald-200">
+                  ⚡ Vijayawada Express Zone (520001–520015)
+                </li>
+                <li className="text-[11px] text-emerald-300/80">
+                  Bengaluru Standard Zone (560001–560105)
+                </li>
+                <li className="pt-2">
+                  <button
+                    onClick={() => setLocationModalOpen(true)}
+                    className="text-xs text-amber-300 hover:text-amber-200 font-semibold underline cursor-pointer"
+                  >
+                    Change Delivery Area
                   </button>
-                </li>
-                <li>
-                  <button onClick={() => { setActiveTab("admin"); window.scrollTo({ top: 0, behavior: "smooth" }); }} className="hover:text-white transition">
-                    Admin & Operations
-                  </button>
-                </li>
-                <li>
-                  <span className="text-[11px] text-emerald-400/80">Alex (Customer)</span>
-                </li>
-                <li>
-                  <span className="text-[11px] text-teal-400/80">Dr. Priya (Nutritionist)</span>
                 </li>
               </ul>
             </div>
@@ -439,7 +572,7 @@ export default function Home() {
           <div className="pt-8 border-t border-emerald-900/60 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-emerald-300/70">
             <p>© {new Date().getFullYear()} Nutriverse Ventures. All rights reserved.</p>
             <p className="text-[11px] max-w-lg text-center sm:text-right">
-              Disclaimer: Nutritional metrics are based on scientific equations (Mifflin–St Jeor) and verified whole food composition tables. Not medical diagnoses or medical prescriptions.
+              Disclaimer: Nutritional metrics are based on scientific equations (Mifflin–St Jeor) and verified whole food composition tables (IFCT 2017 & ICMR-NIN 2020). Not medical diagnoses or medical prescriptions.
             </p>
           </div>
         </div>

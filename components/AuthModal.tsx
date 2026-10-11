@@ -1,7 +1,18 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { X, Lock, Mail, User as UserIcon, Shield, Sparkles, ArrowRight, CheckCircle2, Info } from "lucide-react";
+import {
+  X,
+  Lock,
+  Mail,
+  User as UserIcon,
+  Sparkles,
+  ArrowRight,
+  CheckCircle2,
+  Eye,
+  EyeOff,
+  AlertCircle,
+} from "lucide-react";
 import { api, User, getAuthConfig, AuthConfig } from "@/lib/api";
 
 interface AuthModalProps {
@@ -15,7 +26,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<"user" | "nutritionist" | "admin">("user");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [authConfig, setAuthConfig] = useState<AuthConfig | null>(null);
@@ -28,6 +39,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
       setName("");
       setEmail("");
       setPassword("");
+      setShowPassword(false);
     }
   }, [isOpen]);
 
@@ -38,9 +50,26 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
     setLoading(true);
     setError(null);
 
+    // Validation
+    if (mode === "register") {
+      if (!name.trim()) {
+        setError("Please enter your full name.");
+        setLoading(false);
+        return;
+      }
+      if (password.length < 8) {
+        setError("Password must be at least 8 characters long.");
+        setLoading(false);
+        return;
+      }
+    }
+
     try {
       const endpoint = mode === "register" ? "/auth/register" : "/auth/login";
-      const payload = mode === "register" ? { name, email, password, role } : { email, password };
+      // Registration is strictly locked down to 'user' role — no privilege escalation
+      const payload = mode === "register"
+        ? { name: name.trim(), email: email.trim().toLowerCase(), password, role: "user" }
+        : { email: email.trim().toLowerCase(), password };
 
       const res = await api<any>(endpoint, {
         method: "POST",
@@ -56,7 +85,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
       onAuthSuccess(loggedInUser);
       onClose();
     } catch (err: any) {
-      setError(err?.message || "Authentication failed. Please check credentials.");
+      setError(err?.message || "Authentication failed. Please verify your credentials.");
     } finally {
       setLoading(false);
     }
@@ -85,16 +114,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
   };
 
   return (
-    <div className="modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose}>
-      <div className="modal-dialog bg-white rounded-3xl max-w-md w-full shadow-2xl border border-gray-100 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+    <div
+      className="modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+      onClick={onClose}
+    >
+      <div
+        className="modal-dialog bg-white rounded-3xl max-w-md w-full shadow-2xl border border-gray-100 overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
-        <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between bg-emerald-950 text-white">
+        <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between bg-[#143e2b] text-white">
           <div>
             <h2 className="text-base font-bold">
               {mode === "login" ? "Sign In to Nutriverse" : "Create Member Account"}
             </h2>
             <p className="text-xs text-emerald-300">
-              {mode === "login" ? "Access your saved nutrition plan & orders" : "Begin your personalized grocery journey"}
+              {mode === "login"
+                ? "Access your saved nutrition plan, orders & bag"
+                : "Personalized nutrition, whole foods & Calin Packs"}
             </p>
           </div>
           <button
@@ -106,16 +143,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
           </button>
         </div>
 
-        <div className="p-6 space-y-5">
+        <div className="p-6 space-y-4">
           {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700">
-              {error}
+            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{error}</span>
             </div>
           )}
 
           {/* Quick 1-Click Role Switcher for Testing (GATED to development env) */}
           {authConfig?.demo_shortcuts_enabled && (
-            <div className="p-3.5 bg-emerald-50/70 border border-emerald-200/80 rounded-2xl space-y-2">
+            <div className="p-3 bg-emerald-50/70 border border-emerald-200/80 rounded-2xl space-y-2">
               <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-900 block flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5 text-emerald-700" /> Dev Shortcuts (Local Testing Only)
               </span>
@@ -148,9 +186,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
             </div>
           )}
 
-
-          {/* Standard Form */}
-          <form onSubmit={handleSubmit} className="space-y-3.5">
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="space-y-3">
             {mode === "register" && (
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1">Full Name</label>
@@ -188,35 +225,33 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
               <div className="relative">
                 <Lock className="w-4 h-4 text-gray-600 absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   required
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 text-xs rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                  className="w-full pl-10 pr-10 py-2 text-xs rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                 />
-              </div>
-            </div>
-
-            {mode === "register" && (
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Role</label>
-                <select
-                  value={role}
-                  onChange={(e) => setRole(e.target.value as any)}
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  title={showPassword ? "Hide password" : "Show password"}
                 >
-                  <option value="user">Customer</option>
-                  <option value="nutritionist">Nutritionist</option>
-                  <option value="admin">Store Administrator</option>
-                </select>
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
-            )}
+              {mode === "register" && (
+                <span className="text-[10px] text-gray-600 block mt-1">
+                  Must be at least 8 characters. Accounts register as Customer.
+                </span>
+              )}
+            </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow transition flex items-center justify-center gap-2 mt-2"
+              className="w-full py-2.5 bg-[#236b48] hover:bg-[#1a5338] disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow transition flex items-center justify-center gap-2 mt-2"
             >
               {loading ? (
                 "Authenticating..."
@@ -235,7 +270,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
                 New to Nutriverse?{" "}
                 <button
                   type="button"
-                  onClick={() => setMode("register")}
+                  onClick={() => {
+                    setMode("register");
+                    setError(null);
+                  }}
                   className="text-emerald-700 font-bold hover:underline"
                 >
                   Create an account
@@ -246,7 +284,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
                 Already registered?{" "}
                 <button
                   type="button"
-                  onClick={() => setMode("login")}
+                  onClick={() => {
+                    setMode("login");
+                    setError(null);
+                  }}
                   className="text-emerald-700 font-bold hover:underline"
                 >
                   Sign in

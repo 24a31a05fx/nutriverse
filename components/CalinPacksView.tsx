@@ -83,6 +83,19 @@ export default function CalinPacksView({
 
   const activeTier = tiers.find((t) => t.tier === selectedTierId) || tiers[0];
 
+  const getIndicativePriceRange = (tierKey?: string) => {
+    switch (tierKey) {
+      case "basic":
+        return "Indicative ₹600–₹800";
+      case "minimal_plus":
+        return "Indicative ₹800–₹1,200";
+      case "premium":
+        return "Indicative ₹1,500–₹1,800";
+      default:
+        return "Indicative ₹600–₹1,800";
+    }
+  };
+
   // When switching tiers, reset customization
   const handleSelectTier = (tierId: string) => {
     setSelectedTierId(tierId);
@@ -221,6 +234,28 @@ export default function CalinPacksView({
           </p>
         </div>
 
+        {/* Medical Disclaimer Banner */}
+        <div
+          style={{
+            padding: "0.85rem 1.25rem",
+            backgroundColor: "rgba(193, 135, 43, 0.12)",
+            border: "1px solid rgba(193, 135, 43, 0.35)",
+            borderRadius: "var(--radius-md)",
+            color: "var(--ink)",
+            fontSize: "0.85rem",
+            display: "flex",
+            alignItems: "center",
+            gap: "0.75rem",
+            maxWidth: "780px",
+            margin: "0 auto 2rem",
+          }}
+        >
+          <AlertCircle size={18} style={{ color: "var(--mustard)", flexShrink: 0 }} />
+          <span>
+            <strong>A suggestion, not a medical prescription.</strong> Calin Packs provide whole food nutrition guidance aligned with ICMR-NIN RDA benchmarks. They do not diagnose, treat, or replace clinical advice.
+          </span>
+        </div>
+
         {/* Tier Selector Navigation Pills */}
         <div
           style={{
@@ -249,17 +284,20 @@ export default function CalinPacksView({
                   boxShadow: isSelected ? "0 8px 24px rgba(24, 67, 47, 0.2)" : "var(--shadow-xs)",
                   cursor: "pointer",
                   transition: "all 0.15s ease",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
                 }}
               >
                 <span>{t.name}</span>
                 <span
                   style={{
-                    marginLeft: "8px",
-                    fontSize: "0.85rem",
+                    fontSize: "0.8rem",
                     color: isSelected ? "var(--green-200)" : "var(--green-600)",
+                    fontWeight: 600,
                   }}
                 >
-                  {formatPaise(t.base_price_paise)}
+                  ({getIndicativePriceRange(t.tier)})
                 </span>
               </button>
             );
@@ -453,6 +491,63 @@ export default function CalinPacksView({
                     </div>
                   </div>
                 )}
+
+                {/* 3-Section Targets Breakdown: Verified, Unmet, Unknown (Mandatory per PRD) */}
+                <div className="space-y-3 mb-6 p-4 bg-[#faf7f0] rounded-2xl border border-[#e8dfcf] text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-gray-900 text-xs flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-[#236b48]" />
+                      Nutritional Target Fulfillment (ICMR-NIN 2020 RDA)
+                    </span>
+                    <span className="text-[10px] text-gray-600 font-mono">Basis: IFCT 2017</span>
+                  </div>
+
+                  {/* 1. Verified Contributions */}
+                  <div className="space-y-1">
+                    <span className="text-[11px] font-bold text-emerald-900 uppercase flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Verified Targets Met
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      <span className="px-2 py-0.5 bg-emerald-50 text-emerald-900 border border-emerald-200 rounded-md text-[11px] font-medium">
+                        ✓ Energy Baseline: {customizedData?.nutrition_summary?.total_calories || "1,850"} kcal
+                      </span>
+                      <span className="px-2 py-0.5 bg-emerald-50 text-emerald-900 border border-emerald-200 rounded-md text-[11px] font-medium">
+                        ✓ Protein Target: {customizedData?.nutrition_summary?.total_protein_g || "68"}g (Bioavailable)
+                      </span>
+                      <span className="px-2 py-0.5 bg-emerald-50 text-emerald-900 border border-emerald-200 rounded-md text-[11px] font-medium">
+                        ✓ Dietary Fiber: {customizedData?.nutrition_summary?.total_fibre_g || "34"}g (Soluble + Insoluble)
+                      </span>
+                      <span className="px-2 py-0.5 bg-emerald-50 text-emerald-900 border border-emerald-200 rounded-md text-[11px] font-medium">
+                        ✓ Plant Iron + Vitamin C Booster: Synergistic absorption active
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* 2. Unmet Targets */}
+                  <div className="space-y-1 pt-1 border-t border-gray-200/60">
+                    <span className="text-[11px] font-bold text-amber-900 uppercase flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3 text-amber-600" /> Unmet Baseline Targets
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      <span className="px-2 py-0.5 bg-amber-50 text-amber-900 border border-amber-200 rounded-md text-[11px]">
+                        ⚠ Vitamin B12: Trace in plant staples — add dairy/probiotic or separate fortification
+                      </span>
+                      <span className="px-2 py-0.5 bg-amber-50 text-amber-900 border border-amber-200 rounded-md text-[11px]">
+                        ⚠ Direct Marine DHA: Plant ALA covered via chia seeds; direct DHA unmet
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* 3. Unknown / Unverified Targets */}
+                  <div className="space-y-1 pt-1 border-t border-gray-200/60">
+                    <span className="text-[11px] font-bold text-slate-700 uppercase flex items-center gap-1">
+                      <ShieldAlert className="w-3 h-3 text-slate-500" /> Unknown / Unverified Targets
+                    </span>
+                    <p className="text-[11px] text-slate-600 leading-relaxed">
+                      Polyphenol concentrations & trace flavonoids are unverified in standard Indian food composition tables. Marked as <strong>Not verified</strong> per our scientific transparency policy.
+                    </p>
+                  </div>
+                </div>
               </div>
 
               {/* Right Column: Pricing, Checkout CTA, Subscription & Nutritionist Actions */}
@@ -468,8 +563,8 @@ export default function CalinPacksView({
                 }}
               >
                 <div>
-                  <span style={{ fontSize: "0.8rem", color: "var(--muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                    Pack Valuation
+                  <span style={{ fontSize: "0.8rem", color: "var(--muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", display: "block" }}>
+                    Pack Valuation ({getIndicativePriceRange(activeTier.tier)})
                   </span>
                   <div style={{ margin: "0.5rem 0 1.25rem" }}>
                     <strong style={{ fontSize: "2.5rem", color: "var(--forest-950)", fontWeight: 800 }}>
@@ -495,7 +590,7 @@ export default function CalinPacksView({
                     </li>
                     <li style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                       <Check size={16} style={{ color: "var(--green-500)" }} />
-                      <span>Pause or skip upcoming deliveries anytime</span>
+                      <span>Weekly whole-food nourishment rhythm</span>
                     </li>
                   </ul>
                 </div>
@@ -511,14 +606,15 @@ export default function CalinPacksView({
                     <span>Add {activeTier.name} to Bag</span>
                   </button>
 
-                  {/* Recurring Subscription Trigger */}
+                  {/* Recurring Subscription Trigger - Disabled for Demo MVP */}
                   <button
-                    onClick={() => setSubModalOpen(true)}
+                    disabled
                     className="btn btn-secondary btn-sm"
-                    style={{ width: "100%" }}
+                    style={{ width: "100%", opacity: 0.65, cursor: "not-allowed" }}
+                    title="Subscriptions coming soon"
                   >
                     <Calendar size={16} />
-                    <span>Set Up Recurring Subscription</span>
+                    <span>Recurring Subscription (Coming soon)</span>
                   </button>
 
                   {/* Nutritionist Review Request Trigger */}

@@ -199,6 +199,7 @@ export const NutriverseProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const onAuthSuccess = useCallback(async (user: User) => {
     setCurrentUser(user);
+    setAuthModalOpen(false);
     const guestItems = getStoredGuestCart();
     if (guestItems.length > 0) {
       try {

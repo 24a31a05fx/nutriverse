@@ -1,0 +1,151 @@
+4. Application Flow (APPFLOW)
+
+Nutriverse Web Application • MVP Specification
+
+Prepared from the supplied Nutriverse Venture Pitch & Problem Statement, Scientific Problem Research Summary, and Nutrition-First Retail Business Concept.
+
+1. Master Flow
+
+Visitor → Landing → Register/Login or Demo → Onboarding → Nutrition Calculation → Profile → Dashboard → Food/Recipe/Scanner/AI/Calin Pack → Cart → Demo Checkout → Order Confirmation → Progress.
+
+2. New User Flow
+
+Open Nutriverse
+
+Understand value proposition
+
+Create account or enter demo mode
+
+Complete nutrition onboarding
+
+Validate inputs
+
+Calculate estimated calorie requirement
+
+Create nutrition profile
+
+Show dashboard
+
+Offer next actions: explore foods, scan, recipes, AI, build Calin Pack
+
+3. Food Discovery Flow
+
+Open Food Explorer
+
+Search/filter by nutrient category
+
+Select food
+
+View nutrition details
+
+View recipes/preparation
+
+Ask AI or add to cart
+
+Return to explorer
+
+4. Scanner Flow
+
+Open scanner
+
+Request camera permission if real camera is used
+
+Scan barcode or select demo barcode
+
+Resolve product
+
+Display product nutrition
+
+Offer recipe/AI/add-to-cart actions
+
+Save scan to history
+
+5. Calin Pack Flow
+
+Open Calin Packs
+
+Read nutrition profile
+
+Select Basic/Minimal Plus/Premium
+
+Generate pack
+
+Review foods and nutrition totals
+
+Customize/substitute
+
+Recalculate totals
+
+Add to cart
+
+6. Checkout Flow
+
+Review cart
+
+Enter/select address
+
+Select demo delivery option
+
+Review order
+
+Display explicit 'Demo Order — No Real Payment' label
+
+Place demo order
+
+Generate order ID
+
+Show confirmation
+
+Send order to admin queue
+
+7. Progress Flow
+
+Open Progress
+
+Select date/range
+
+Read logged foods/meals/scans
+
+Aggregate nutrition intake
+
+Compare with estimated profile
+
+Display trends
+
+Link to foods/recipes/Calin Pack
+
+8. Admin Flow
+
+Admin login
+
+Dashboard
+
+Manage foods
+
+Manage nutrition data
+
+Manage recipes
+
+Manage Calin Packs
+
+Review demo orders
+
+View users
+
+View system activity
+
+9. Error/Empty States
+
+Incomplete onboarding → highlight missing fields
+
+No food results → suggest broader search
+
+Unknown barcode → allow manual/demo lookup
+
+Missing nutrition data → mark unavailable
+
+AI uncertainty → explain that data is insufficient
+
+Empty cart → return to Food Explorer/Calin Packs
+
+Unauthorized admin → block access

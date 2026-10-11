@@ -257,26 +257,26 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 </div>
 
                 {/* Demonstration Notice */}
-                <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs space-y-1">
-                  <div className="flex items-center gap-1.5 font-semibold text-amber-950">
-                    <ShieldCheck className="w-4 h-4 text-amber-600" /> Demonstration Checkout Mode
+                <div className="p-3.5 rounded-xl bg-[#F6F1E4] border border-[#DDD3B8] text-[#232A16] text-xs space-y-1.5">
+                  <div className="flex items-center gap-1.5 font-bold text-[#232A16]">
+                    <ShieldCheck className="w-4 h-4 text-[#3E4A26]" /> Demo Checkout
                   </div>
-                  <p className="text-[11px] leading-relaxed">
-                    Zero payment gateway credentials requested. When you click below, this order will be saved directly into the PostgreSQL/SQLite database with state &quot;placed&quot;.
+                  <p className="text-[11px] text-[#6B7A45] leading-relaxed">
+                    Demo checkout — no payment will be taken and no real delivery is booked.
                   </p>
                 </div>
 
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl shadow-md transition flex items-center justify-center gap-2"
+                  className="w-full py-3 bg-[#3E4A26] hover:bg-[#232A16] text-[#F6F1E4] text-xs font-bold rounded-xl transition flex items-center justify-center gap-2"
                 >
                   {submitting ? (
                     <>
                       <RefreshCw className="w-4 h-4 animate-spin" /> Persisting Order...
                     </>
                   ) : (
-                    <>Confirm & Place Demo Order ({cart ? formatPaise(cart.total_paise) : "—"})</>
+                    <>Place Demo Order ({cart ? formatPaise(cart.total_paise) : "—"})</>
                   )}
                 </button>
               </form>

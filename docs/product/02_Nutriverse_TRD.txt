@@ -1,0 +1,311 @@
+2. Technical Requirements Document (TRD)
+
+Nutriverse Web Application • MVP Specification
+
+Prepared from the supplied Nutriverse Venture Pitch & Problem Statement, Scientific Problem Research Summary, and Nutrition-First Retail Business Concept.
+
+1. Recommended Architecture
+
+Use a modular full-stack web architecture: React/Next.js frontend, Python FastAPI backend, PostgreSQL database, object storage for product/recipe images, and an AI service behind a backend orchestration layer. The MVP can be deployed as a single web application with clear service boundaries.
+
+2. Technology Stack
+
+Layer
+
+Technology
+
+Purpose
+
+Frontend
+
+Next.js + React + TypeScript
+
+Pages, components, state, responsive UI
+
+Styling
+
+Tailwind CSS
+
+Design system and responsive layouts
+
+Backend
+
+FastAPI + Python
+
+REST APIs, calculations, business logic
+
+Database
+
+PostgreSQL
+
+Users, foods, nutrition, packs, carts, orders, progress
+
+ORM
+
+SQLAlchemy
+
+Models and database access
+
+Validation
+
+Pydantic
+
+API request/response validation
+
+Auth
+
+JWT/session-based auth
+
+User and admin access
+
+AI
+
+LLM API via backend
+
+Grounded assistant responses
+
+Scanner
+
+Browser camera/barcode library or seeded demo
+
+Product identification
+
+Charts
+
+Lightweight chart library
+
+Progress/nutrition visualization
+
+Deployment
+
+Cloud web hosting + managed PostgreSQL
+
+MVP hosting
+
+3. Frontend Modules
+
+Landing
+
+Authentication
+
+Onboarding
+
+Nutrition Profile
+
+Dashboard
+
+Food Explorer
+
+Food Details
+
+Recipes
+
+Scanner
+
+AI Assistant
+
+Calin Packs
+
+Cart
+
+Demo Checkout
+
+Orders
+
+Progress
+
+Admin
+
+4. Backend Modules
+
+Auth Service
+
+User/Profile Service
+
+Nutrition Engine
+
+Food Catalog Service
+
+Recipe Service
+
+Scanner/Product Lookup Service
+
+Calin Pack Engine
+
+Cart/Order Service
+
+AI Orchestration Service
+
+Progress Service
+
+Admin Service
+
+5. API Requirements
+
+Method
+
+Endpoint
+
+Purpose
+
+POST
+
+/api/auth/register
+
+Create account
+
+POST
+
+/api/auth/login
+
+Authenticate
+
+POST
+
+/api/profile
+
+Create/update nutrition profile
+
+GET
+
+/api/profile
+
+Read profile
+
+GET
+
+/api/nutrition/summary
+
+Get calculated nutrition summary
+
+GET
+
+/api/foods
+
+Search/filter foods
+
+GET
+
+/api/foods/{id}
+
+Food details
+
+GET
+
+/api/foods/barcode/{code}
+
+Barcode lookup
+
+GET
+
+/api/recipes
+
+Recipe search
+
+POST
+
+/api/ai/chat
+
+Grounded AI question
+
+POST
+
+/api/calin-packs/generate
+
+Generate pack
+
+PATCH
+
+/api/calin-packs/{id}
+
+Customize pack
+
+POST
+
+/api/cart/items
+
+Add item
+
+GET
+
+/api/cart
+
+Read cart
+
+POST
+
+/api/orders/demo
+
+Create demo order
+
+GET
+
+/api/orders
+
+Order history
+
+GET
+
+/api/progress
+
+Progress summary
+
+GET
+
+/api/admin/dashboard
+
+Admin metrics
+
+6. Nutrition Engine
+
+The supplied concept specifies the Mifflin–St Jeor equation and activity multipliers for individualized calorie estimates. Implement this as a deterministic backend service. Keep the calculation versioned so future nutrition rules can be updated without changing historical records.
+
+7. AI Guardrails
+
+Retrieve relevant food/nutrition records before generating an answer.
+
+Never invent a product's nutrition values.
+
+Return a clear uncertainty message when required data is missing.
+
+Do not diagnose conditions or prescribe treatment.
+
+Use a visible general-guidance disclaimer.
+
+Allow qualified human review in a later phase for condition-specific workflows.
+
+8. Security
+
+Hash passwords with a modern password hashing algorithm
+
+Use HTTPS in production
+
+Validate all inputs
+
+Use authorization middleware
+
+Restrict admin APIs
+
+Rate-limit AI endpoints
+
+Keep secrets in environment variables
+
+Log security-relevant events
+
+Minimize sensitive profile data
+
+9. Performance Targets
+
+Paginate food search
+
+Index barcode and searchable food fields
+
+Cache frequently used catalog data
+
+Avoid sending full nutrition databases to the browser
+
+Lazy-load images and heavy dashboard modules
+
+10. Environment
+
+Use separate development, test, and production configuration. Store DATABASE_URL, AI provider credentials, authentication secrets, and other credentials only in environment/secret management and never commit them to source control.
