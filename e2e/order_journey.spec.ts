@@ -12,6 +12,7 @@ const PYTHON_BIN = fs.existsSync(localVenv)
   : (process.env.PYTHON || (process.platform === "win32" ? "python.exe" : "python3"));
 
 const DB_URL = process.env.DATABASE_URL || "sqlite:///./nutriverse.db";
+const FRONTEND_URL = process.env.BASE_URL || "http://127.0.0.1:3000";
 
 function killPort8000() {
   if (process.platform === "win32") {
@@ -23,8 +24,7 @@ function killPort8000() {
   } else {
     try {
       execSync(`pkill -9 -f "uvicorn" 2>/dev/null || true`);
-    } catch {}
-    try {
+      execSync(`lsof -ti:8000 | xargs -r kill -9 2>/dev/null || true`);
       execSync(`fuser -k 8000/tcp 2>/dev/null || true`);
     } catch {}
   }
@@ -66,7 +66,13 @@ test.describe("Phase 1b Playwright Suite", () => {
 
     try {
       execSync(
-        `"${PYTHON_BIN}" -c "from sqlalchemy import create_engine; from sqlalchemy.orm import Session; from backend.app.main import Food, settings; engines = [create_engine(settings.database_url), create_engine('${DB_URL}')]; [ (s := Session(eng), (s.delete(s.get(Food, 'f-frac-1')), s.commit()) if s.get(Food, 'f-frac-1') else None, s.add(Food(id='f-frac-1', name='Fractional Test Grain', barcode='8901111999999', category='Grains', description='Test food', price_paise=3350, calories=100.0, protein_g=4.0, carbs_g=20.0, fat_g=1.0, fibre_g=2.0, stock_qty=50, unit='100g', serving_size='50g', vitamins_json='{}', ingredients='Grain', storage_info='Dry', prep_methods='[]', dietary_tags='[]', emoji='🌾', active=True)), s.commit(), s.close()) for eng in engines ]"`
+        `"${PYTHON_BIN}" -c "from sqlalchemy import create_engine; from sqlalchemy.orm import Session; from backend.app.main import Food, settings; engines = [create_engine(settings.database_url), create_engine('${DB_URL}')]; [ (s := Session(eng), (s.delete(s.get(Food, 'f-frac-1')), s.commit()) if s.get(Food, 'f-frac-1') else None, s.add(Food(id='f-frac-1', name='Fractional Test Grain', barcode='8901111999999', category='Grains', description='Test food', price_paise=3350, calories=100.0, protein_g=4.0, carbs_g=20.0, fat_g=1.0, fibre_g=2.0, stock_qty=50, unit='100g', serving_size='50g', vitamins_json='{}', ingredients='Grain', storage_info='Dry', prep_methods='[]', dietary_tags='[]', emoji='🌾', active=True)), s.commit(), s.close()) for eng in engines ]"`,
+        {
+          env: {
+            ...process.env,
+            PYTHONPATH: process.cwd(),
+          },
+        }
       );
     } catch {}
   });
@@ -161,8 +167,10 @@ test.describe("Phase 1b Playwright Suite", () => {
       PYTHON_BIN,
       ["-m", "uvicorn", "backend.app.main:app", "--port", "8000", "--host", "127.0.0.1"],
       {
+        cwd: process.cwd(),
         env: {
           ...process.env,
+          PYTHONPATH: process.cwd(),
           APP_ENV: "production",
           JWT_SECRET: "a-cryptographically-secure-production-jwt-secret-string-32-chars",
           DATABASE_URL: DB_URL,
@@ -218,8 +226,10 @@ test.describe("Phase 1b Playwright Suite", () => {
         PYTHON_BIN,
         ["-m", "uvicorn", "backend.app.main:app", "--port", "8000", "--host", "127.0.0.1"],
         {
+          cwd: process.cwd(),
           env: {
             ...process.env,
+            PYTHONPATH: process.cwd(),
             APP_ENV: "development",
             RATE_LIMIT_LOGIN: "100/minute",
             DATABASE_URL: DB_URL,
@@ -232,7 +242,7 @@ test.describe("Phase 1b Playwright Suite", () => {
         try {
           const res = await fetch("http://127.0.0.1:8000/health");
           if (res.ok) {
-            const proxyRes = await fetch("http://localhost:3000/api/foods").catch(() => null);
+            const proxyRes = await fetch(`${FRONTEND_URL}/api/foods`).catch(() => null);
             if (proxyRes && proxyRes.ok) break;
           }
         } catch {}
@@ -248,7 +258,7 @@ test.describe("Phase 1b Playwright Suite", () => {
     // 1. Ensure Next.js proxy is primed and returns f-frac-1
     for (let i = 0; i < 50; i++) {
       try {
-        const res = await fetch("http://localhost:3000/api/foods");
+        const res = await fetch(`${FRONTEND_URL}/api/foods`);
         if (res.ok) {
           const foods = await res.json();
           if (Array.isArray(foods) && foods.some((f: any) => f.id === "f-frac-1")) break;

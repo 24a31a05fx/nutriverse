@@ -11,7 +11,7 @@ export default defineConfig({
     ["html", { outputFolder: "playwright-report", open: "never" }],
   ],
   use: {
-    baseURL: process.env.BASE_URL || "http://localhost:3000",
+    baseURL: process.env.BASE_URL || "http://127.0.0.1:3000",
     trace: "on-first-retry",
     headless: true,
   },

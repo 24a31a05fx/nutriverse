@@ -7,7 +7,18 @@ import { useNutriverse } from "@/components/NutriverseProvider";
 import { ShieldAlert, LogIn, ArrowLeft } from "lucide-react";
 
 export default function AdminPageClient() {
-  const { currentUser, setAuthModalOpen } = useNutriverse();
+  const { currentUser, sessionReady, setAuthModalOpen } = useNutriverse();
+
+  if (!sessionReady) {
+    return (
+      <div className="max-w-md mx-auto px-4 py-16 text-center space-y-5 animate-in fade-in" role="status">
+        <div className="w-16 h-16 mx-auto rounded-3xl bg-emerald-50 text-emerald-700 flex items-center justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-800" />
+        </div>
+        <p className="text-xs text-gray-500">Checking administrator privileges…</p>
+      </div>
+    );
+  }
 
   if (!currentUser) {
     return (

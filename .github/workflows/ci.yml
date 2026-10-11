@@ -154,8 +154,10 @@ jobs:
           DATABASE_URL: sqlite:///./e2e_ci.db
           JWT_SECRET: ci-temporary-secret-string-at-least-32-chars-long
           REDIS_URL: memory://
+          ALLOWED_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
           NEXT_PUBLIC_API_URL: http://127.0.0.1:8000/api
           BACKEND_INTERNAL_URL: http://127.0.0.1:8000
+          BASE_URL: http://127.0.0.1:3000
         run: |
           set -euo pipefail
           python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 > backend.log 2>&1 &
@@ -180,6 +182,14 @@ jobs:
           done
           curl --fail --silent http://127.0.0.1:3000 >/dev/null
           npm run test:e2e
+
+      - name: Dump logs on failure
+        if: failure()
+        run: |
+          echo "=== Backend Log ==="
+          cat backend.log || true
+          echo "=== Frontend Log ==="
+          cat frontend.log || true
 
       - name: Upload Playwright report on failure
         if: failure()
