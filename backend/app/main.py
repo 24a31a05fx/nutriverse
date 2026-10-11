@@ -31,6 +31,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -169,7 +170,7 @@ class Food(Base):
     __tablename__ = "foods"
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
     name: Mapped[str] = mapped_column(String(120), index=True)
-    barcode: Mapped[Optional[str]] = mapped_column(String(32), unique=False, nullable=True, index=True)
+    barcode: Mapped[Optional[str]] = mapped_column(String(32), unique=True, nullable=True, index=True)
     category: Mapped[str] = mapped_column(String(80), index=True)  # Conventional category (Legumes, Greens, etc.)
     nutrition_tags: Mapped[str] = mapped_column(Text, default="[]")  # JSON array of tags: protein_rich, fiber_rich, etc.
     description: Mapped[str] = mapped_column(Text)
@@ -236,6 +237,7 @@ class CartItem(Base):
 
 class Order(Base):
     __tablename__ = "orders"
+    __table_args__ = (Index("ix_orders_user_id_status", "user_id", "status"),)
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
     status: Mapped[str] = mapped_column(String(40), default="placed")  # placed, confirmed, preparing, out_for_delivery, delivered, cancelled
@@ -297,11 +299,12 @@ class AuditLog(Base):
     entity_type: Mapped[str] = mapped_column(String(80))
     entity_id: Mapped[str] = mapped_column(String(80))
     details: Mapped[str] = mapped_column(Text, default="{}")
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
 
 
 class RefreshToken(Base):
     __tablename__ = "refresh_tokens"
+    __table_args__ = (Index("ix_refresh_tokens_user_family_hash", "user_id", "family_id", "token_hash"),)
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     family_id: Mapped[str] = mapped_column(String(36), index=True, default=lambda: str(uuid4()))

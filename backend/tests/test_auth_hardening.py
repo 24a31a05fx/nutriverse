@@ -602,3 +602,53 @@ def test_fresh_database_alembic_upgrade_head():
             pass
 
 
+def test_database_performance_and_security_indexes():
+    """Verify performance and security indexes required in Step C are active in database."""
+    from sqlalchemy import create_engine, inspect
+    from backend.app.main import settings
+
+    eng = create_engine(settings.database_url)
+    insp = inspect(eng)
+
+    # 1. foods.barcode UNIQUE
+    food_indexes = insp.get_indexes("foods")
+    barcode_idx = next((idx for idx in food_indexes if "barcode" in idx["column_names"]), None)
+    assert barcode_idx is not None, "foods.barcode index missing"
+    assert barcode_idx["unique"] == 1 or barcode_idx["unique"] is True, "foods.barcode must be UNIQUE"
+
+    # 2. foods.category
+    cat_idx = next((idx for idx in food_indexes if "category" in idx["column_names"]), None)
+    assert cat_idx is not None, "foods.category index missing"
+
+    # 3. orders(user_id, status)
+    order_indexes = insp.get_indexes("orders")
+    order_composite = next(
+        (idx for idx in order_indexes if idx["column_names"] == ["user_id", "status"]), None
+    )
+    assert order_composite is not None, "orders(user_id, status) composite index missing"
+
+    # 4. cart_items.user_id
+    cart_indexes = insp.get_indexes("cart_items")
+    cart_uid = next((idx for idx in cart_indexes if "user_id" in idx["column_names"]), None)
+    assert cart_uid is not None, "cart_items.user_id index missing"
+
+    # 5. subscriptions.user_id
+    sub_indexes = insp.get_indexes("subscriptions")
+    sub_uid = next((idx for idx in sub_indexes if "user_id" in idx["column_names"]), None)
+    assert sub_uid is not None, "subscriptions.user_id index missing"
+
+    # 6. refresh_tokens(user_id, family_id, token_hash)
+    rt_indexes = insp.get_indexes("refresh_tokens")
+    rt_composite = next(
+        (idx for idx in rt_indexes if idx["column_names"] == ["user_id", "family_id", "token_hash"]), None
+    )
+    assert rt_composite is not None, "refresh_tokens(user_id, family_id, token_hash) composite index missing"
+
+    # 7. audit_logs.created_at
+    al_indexes = insp.get_indexes("audit_logs")
+    al_created = next((idx for idx in al_indexes if "created_at" in idx["column_names"]), None)
+    assert al_created is not None, "audit_logs.created_at index missing"
+
+    eng.dispose()
+
+
