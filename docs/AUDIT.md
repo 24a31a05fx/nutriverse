@@ -584,4 +584,44 @@ In accordance with our engineering transparency guidelines, the following areas 
 4. **Nutritional Engine Scope:** Nutritional requirements currently utilize a baseline Mifflin–St Jeor calculation without ICMR-NIN RDA 2020 micronutrient reference tables or clinical safety floors. Complete engine guardrails are scheduled for **Phase 3**.
 5. **Deferred Initiatives:** Subscriptions, AI Assistant ("Nourish" Claude tool-calling), human Nutritionist consultation review queues, and Phone OTP remain explicitly deferred to post-pilot development.
 
+---
+
+### 7.8 Phase 1b.2 Cleanup
+
+Phase 1b.2 completes final architectural hygiene and invariant enforcement across backend, frontend, and build infrastructure:
+
+1. **Dead Rupee Fallbacks Removed:**
+   - In `lib/api.ts`, all monetary properties (`price_paise`, `base_price_paise`, `unit_price_paise`, `subtotal_paise`, `delivery_fee_paise`, `total_paise`, `budget_paise`) are strictly typed required integer fields.
+   - All optional legacy rupee fields (`price_inr`, `base_price_inr`, `unit_price_inr`, `customized_price_inr`, `total_price_inr`) and coalescing fallback patterns (`?? (x.price_inr ? x.price_inr * 100 : 0)`) have been eliminated across all application and component code (`app/`, `components/`, `lib/`, `backend/app/`).
+   - Missing or non-numeric monetary values now render as a visible error state (`[Price Error]`) via `formatPaise()` rather than defaulting to ₹0.
+   - `git grep -n "price_inr\|_inr"` returns 0 occurrences across `app/`, `components/`, `lib/`, and `backend/app/`.
+
+2. **Cart Rounding Bug Resolved:**
+   - In `components/NutriverseProvider.tsx`, removed legacy `Math.floor(unit_price / 100)` logic. Guest cart lines store only `food_id` and `quantity`.
+   - All prices and subtotal computations derive strictly from integer paise.
+   - Verified via Playwright automated E2E test that an item with price 3350 paise renders exactly as `₹33.50` and not truncated to `₹33`.
+
+3. **Legacy Schema & Payloads Purged:**
+   - Deleted unused legacy raw migration `backend/migrations/001_initial.sql`.
+   - `FoodCreatePayload` in `backend/app/main.py` requires `price_paise: int = Field(ge=0)` with no rupee adapter.
+
+4. **Combinations Calculator Decimal Round-Half-Up:**
+   - In `backend/app/main.py` (`/api/combinations/calculate`), item pricing and total aggregation now use Python's `Decimal(str(qty)) * Decimal(str(food.price_paise))` quantizing to integer paise with `ROUND_HALF_UP` (`Decimal("1")`).
+   - Verified via `backend/tests/test_money_math.py` that fractional portion quantities (0.5 and 1.5) and odd fractional paise compute with mathematical precision.
+
+5. **Alembic Invariance & Starlette Deprecation Documentation:**
+   - `backend/alembic/versions/c0a2e9def992_paise_migration.py` inspects table schema dynamically to safely migrate nutrition profile budgets across upgrades and downgrades.
+   - Verified two-way migration lifecycle proof across both SQLite and PostgreSQL 16.
+   - Starlette 0.46 testclient deprecation warning filter documented in `pytest.ini`.
+
+6. **Continuous Integration (CI):**
+   - Added minimal `.github/workflows/ci.yml` running Python 3.12 (SQLite + Pytest), PostgreSQL 16 (Alembic migration + Pytest), and Node.js 20 (`npm ci`, `npx tsc --noEmit`, `npm run lint`, `npm run build`).
+
+7. **Final Verified Automated Test Counts:**
+   - **Backend Pytest (SQLite):** 39 passed (0 failures, 0 warnings).
+   - **Backend Pytest (PostgreSQL):** 39 passed (0 failures, 0 warnings).
+   - **Frontend Playwright E2E:** 12 passed (0 failures).
+   - **Frontend TypeScript & Build:** 0 type errors (`tsc --noEmit`), 0 lint warnings/errors (`next lint`), production build successful (`next build`).
+
+
 
