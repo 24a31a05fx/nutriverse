@@ -6,7 +6,8 @@ from datetime import datetime, timezone
 import pytest
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import create_engine, text, inspect
+from sqlalchemy import create_engine, inspect, text
+from sqlalchemy.engine import make_url
 
 
 def _run_paise_lifecycle_test_on_url(db_url: str):
@@ -210,23 +211,34 @@ def test_paise_migration_proof_postgres():
     """Verify paise migration lifecycle (upgrade + downgrade invariance) on PostgreSQL."""
     import psycopg2
 
-    # Connect to default postgres database to spin up an isolated test database
-    pg_host = os.environ.get("POSTGRES_HOST", "localhost")
-    pg_port = int(os.environ.get("POSTGRES_PORT", 5432))
-    pg_user = os.environ.get("POSTGRES_USER", "nutriverse")
-    pg_pass = os.environ.get("POSTGRES_PASSWORD", "nutriverse")
+    base_url = os.environ.get("TEST_DATABASE_URL") or os.environ.get("DATABASE_URL")
+    if not base_url:
+        pytest.skip("PostgreSQL proof requires TEST_DATABASE_URL or DATABASE_URL")
+
+    admin_url = make_url(base_url)
+    if not admin_url.drivername.startswith("postgresql"):
+        pytest.skip("PostgreSQL proof requires a PostgreSQL database URL")
+
+    pg_host = admin_url.host or "localhost"
+    pg_port = admin_url.port or 5432
+    pg_user = admin_url.username
+    pg_pass = admin_url.password
+    pg_database = admin_url.database
 
     admin_conn = psycopg2.connect(
-        host=pg_host, port=pg_port, user=pg_user, password=pg_pass, dbname="nutriverse"
+        host=pg_host, port=pg_port, user=pg_user, password=pg_pass, dbname=pg_database
     )
     admin_conn.autocommit = True
-    test_db = "nutriverse_paise_proof"
+    test_db = f"nutriverse_paise_proof_{os.getpid()}"
 
     with admin_conn.cursor() as cur:
         cur.execute(f"DROP DATABASE IF EXISTS {test_db};")
         cur.execute(f"CREATE DATABASE {test_db};")
 
-    test_url = f"postgresql+psycopg2://{pg_user}:{pg_pass}@{pg_host}:{pg_port}/{test_db}"
+    test_url = admin_url.set(
+        drivername="postgresql+psycopg2",
+        database=test_db,
+    ).render_as_string(hide_password=False)
     try:
         _run_paise_lifecycle_test_on_url(test_url)
     finally:

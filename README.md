@@ -171,6 +171,8 @@ dashboard additionally requires an account with the `admin` role.
 - The API supports account registration and login, profile storage, catalog
   search, cart and address operations, demo orders, and role-protected admin
   metrics.
+- The `/account` member hub is for signed-in users; guests are redirected to the
+  storefront sign-in modal.
 - The web client includes demonstration screens for food packs, recipes,
   progress, scanning, guidance, orders, and admin metrics; not all of these
   screens are wired to persistent API data.

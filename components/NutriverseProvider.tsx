@@ -105,6 +105,7 @@ function buildCartResponseFromGuestItems(items: GuestCartItem[], catalog: Food[]
 
 interface NutriverseContextType {
   currentUser: User | null;
+  sessionReady: boolean;
   setCurrentUser: React.Dispatch<React.SetStateAction<User | null>>;
   profile: NutritionProfile | null;
   setProfile: React.Dispatch<React.SetStateAction<NutritionProfile | null>>;
@@ -140,6 +141,7 @@ const NutriverseContext = createContext<NutriverseContextType | undefined>(undef
 export const NutriverseProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [sessionReady, setSessionReady] = useState(false);
   const [profile, setProfile] = useState<NutritionProfile | null>(null);
   const [cart, setCart] = useState<CartResponse | null>(null);
   const [allFoods, setAllFoods] = useState<Food[]>([]);
@@ -239,6 +241,8 @@ export const NutriverseProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         setProfile(null);
         const stored = getStoredGuestCart();
         setCart(stored.length > 0 ? buildCartResponseFromGuestItems(stored, allFoods) : null);
+      } finally {
+        setSessionReady(true);
       }
     };
 
@@ -417,6 +421,7 @@ export const NutriverseProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     <NutriverseContext.Provider
       value={{
         currentUser,
+        sessionReady,
         setCurrentUser,
         profile,
         setProfile,
