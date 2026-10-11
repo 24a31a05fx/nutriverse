@@ -78,9 +78,27 @@ def upgrade() -> None:
         batch_op.alter_column("price_per_delivery_inr", new_column_name="price_per_delivery_paise", existing_type=sa.Integer())
     op.execute("UPDATE subscriptions SET price_per_delivery_paise = price_per_delivery_paise * 100")
 
+    # 6. nutrition_profiles: rename budget_inr -> budget_paise, multiply by 100
+    conn = op.get_bind()
+    insp = sa.inspect(conn)
+    np_cols = [c["name"] for c in insp.get_columns("nutrition_profiles")]
+    if "budget_inr" in np_cols:
+        with op.batch_alter_table("nutrition_profiles", schema=None) as batch_op:
+            batch_op.alter_column("budget_inr", new_column_name="budget_paise", existing_type=sa.Integer())
+        op.execute("UPDATE nutrition_profiles SET budget_paise = budget_paise * 100")
+
 
 def downgrade() -> None:
     """Downgrade schema: revert price_paise to price_inr (integer, /100) and drop gst_rate_percent."""
+    # 0. nutrition_profiles: divide by 100, rename back
+    conn = op.get_bind()
+    insp = sa.inspect(conn)
+    np_cols = [c["name"] for c in insp.get_columns("nutrition_profiles")]
+    if "budget_paise" in np_cols:
+        op.execute("UPDATE nutrition_profiles SET budget_paise = CAST(budget_paise / 100 AS INTEGER)")
+        with op.batch_alter_table("nutrition_profiles", schema=None) as batch_op:
+            batch_op.alter_column("budget_paise", new_column_name="budget_inr", existing_type=sa.Integer())
+
     # 1. subscriptions: divide by 100, rename back
     op.execute("UPDATE subscriptions SET price_per_delivery_paise = CAST(price_per_delivery_paise / 100 AS INTEGER)")
     with op.batch_alter_table("subscriptions", schema=None) as batch_op:

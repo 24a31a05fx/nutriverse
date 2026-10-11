@@ -90,6 +90,13 @@ def _run_paise_lifecycle_test_on_url(db_url: str):
             {"now": now}
         )
 
+        # Nutrition Profile (1500 INR budget)
+        conn.execute(
+            text("INSERT INTO nutrition_profiles (id, user_id, age, sex, height_cm, weight_kg, activity_level, calorie_target, bmr, food_preferences, allergies, budget_inr, goal, calculation_version, updated_at) "
+                 "VALUES ('np-proof-1', 'u-proof-1', 28, 'female', 168.0, 62.0, 1.375, 2000, 1400, 'Vegan', 'None', 1500, 'Goal', 'v1', :now)"),
+            {"now": now}
+        )
+
     # 3. Upgrade to HEAD (runs paise_migration + indexes)
     command.upgrade(cfg, "head")
 
@@ -138,6 +145,10 @@ def _run_paise_lifecycle_test_on_url(db_url: str):
         sub = conn.execute(text("SELECT price_per_delivery_paise FROM subscriptions WHERE id = 's-proof-1'")).fetchone()
         assert sub[0] == 1099 * 100, f"Expected 109900 paise, got {sub[0]}"
 
+        # Check nutrition_profiles
+        np = conn.execute(text("SELECT budget_paise FROM nutrition_profiles WHERE id = 'np-proof-1'")).fetchone()
+        assert np[0] == 1500 * 100, f"Expected 150000 paise, got {np[0]}"
+
     # 5. Downgrade back to a5d2dd3a04f9
     command.downgrade(cfg, "a5d2dd3a04f9")
 
@@ -174,6 +185,9 @@ def _run_paise_lifecycle_test_on_url(db_url: str):
 
         sub_down = conn.execute(text("SELECT price_per_delivery_inr FROM subscriptions WHERE id = 's-proof-1'")).fetchone()
         assert sub_down[0] == 1099, f"Expected 1099 INR, got {sub_down[0]}"
+
+        np_down = conn.execute(text("SELECT budget_inr FROM nutrition_profiles WHERE id = 'np-proof-1'")).fetchone()
+        assert np_down[0] == 1500, f"Expected 1500 INR, got {np_down[0]}"
 
 
 def test_paise_migration_proof_sqlite():
