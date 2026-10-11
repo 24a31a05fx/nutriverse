@@ -115,7 +115,7 @@ export default function RecipeDetailClient({ recipe }: { recipe: Recipe }) {
                         href={`/food/${inStore.id}`}
                         className="text-[10px] text-emerald-700 hover:underline font-semibold block"
                       >
-                        Available in store ({formatPaise(inStore.price_paise ?? (inStore.price_inr ? inStore.price_inr * 100 : 0))})
+                        Available in store ({formatPaise(inStore.price_paise)})
                       </Link>
                     )}
                   </div>

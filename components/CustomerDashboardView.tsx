@@ -223,7 +223,7 @@ export const CustomerDashboardView: React.FC<CustomerDashboardProps> = ({
                       </div>
                       <div className="flex items-center gap-2">
                         {getStatusBadge(o.status)}
-                        <span className="text-xs font-bold text-gray-900">{formatPaise(o.total_paise ?? (o.total_inr ? o.total_inr * 100 : 0))}</span>
+                        <span className="text-xs font-bold text-gray-900">{formatPaise(o.total_paise)}</span>
                       </div>
                     </div>
 
@@ -234,7 +234,7 @@ export const CustomerDashboardView: React.FC<CustomerDashboardProps> = ({
                           <span>
                             {it.name} <span className="text-gray-600">× {it.quantity}</span>
                           </span>
-                          <span className="text-gray-600 font-medium">{formatPaise((it.unit_price_paise ?? (it.unit_price_inr ? it.unit_price_inr * 100 : 0)) * it.quantity)}</span>
+                          <span className="text-gray-600 font-medium">{formatPaise(it.unit_price_paise * it.quantity)}</span>
                         </div>
                       ))}
                     </div>
@@ -287,7 +287,7 @@ export const CustomerDashboardView: React.FC<CustomerDashboardProps> = ({
                       <div>
                         <h4 className="text-xs font-bold text-gray-900">{s.pack_name}</h4>
                         <span className="text-[10px] text-purple-700 font-semibold uppercase">
-                          {s.frequency.replace("_", " ")} • {formatPaise(s.price_per_delivery_paise ?? (s.price_per_delivery_inr ? s.price_per_delivery_inr * 100 : 0))} / delivery
+                          {s.frequency.replace("_", " ")} • {formatPaise(s.price_per_delivery_paise)} / delivery
                         </span>
                       </div>
                       <span

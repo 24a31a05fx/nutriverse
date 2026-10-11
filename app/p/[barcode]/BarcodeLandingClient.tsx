@@ -141,7 +141,7 @@ export default function BarcodeLandingClient({ barcode, initialFood }: BarcodeLa
 
           <div className="text-right sm:self-center">
             <span className="text-[11px] text-emerald-300 block">Single Unit</span>
-            <span className="text-2xl font-black text-white">{formatPaise(food.price_paise ?? (food.price_inr ? food.price_inr * 100 : 0))}</span>
+            <span className="text-2xl font-black text-white">{formatPaise(food.price_paise)}</span>
             <span className="text-[10px] text-emerald-300 block">{food.unit}</span>
           </div>
         </div>
@@ -290,7 +290,7 @@ export default function BarcodeLandingClient({ barcode, initialFood }: BarcodeLa
               </>
             ) : (
               <>
-                <ShoppingBag className="w-4 h-4" /> Add to Bag ({formatPaise((food.price_paise ?? (food.price_inr ? food.price_inr * 100 : 0)) * qty)})
+                <ShoppingBag className="w-4 h-4" /> Add to Bag ({formatPaise(food.price_paise * qty)})
               </>
             )}
           </button>

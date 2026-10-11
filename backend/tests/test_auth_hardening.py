@@ -244,7 +244,7 @@ def test_role_guards():
         "category": "Berries & Antioxidants",
         "nutrition_tags": ["vitamin_sources", "fiber_rich"],
         "description": "Dense in anthocyanins and Vitamin C.",
-        "price_inr": 299,
+        "price_paise": 29900,
         "unit": "250g pack",
         "serving_size": "50g",
         "stock_qty": 30,

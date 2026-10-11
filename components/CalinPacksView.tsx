@@ -130,7 +130,7 @@ export default function CalinPacksView({
   // Handle Add to Cart
   const handleAddCustomizedToCart = () => {
     if (!activeTier) return;
-    const finalPrice = customizedData?.customized_price_paise ?? (customizedData?.customized_price_inr ? customizedData.customized_price_inr * 100 : activeTier.base_price_paise);
+    const finalPrice = customizedData?.customized_price_paise ?? activeTier.base_price_paise;
     const customization = {
       tier: activeTier.tier,
       selected_foods: customizedData?.selected_foods || [],
@@ -259,7 +259,7 @@ export default function CalinPacksView({
                     color: isSelected ? "var(--green-200)" : "var(--green-600)",
                   }}
                 >
-                  {formatPaise(t.base_price_paise ?? (t.base_price_inr ? t.base_price_inr * 100 : 0))}
+                  {formatPaise(t.base_price_paise)}
                 </span>
               </button>
             );
@@ -473,7 +473,7 @@ export default function CalinPacksView({
                   </span>
                   <div style={{ margin: "0.5rem 0 1.25rem" }}>
                     <strong style={{ fontSize: "2.5rem", color: "var(--forest-950)", fontWeight: 800 }}>
-                      {formatPaise(customizedData?.customized_price_paise ?? (customizedData?.customized_price_inr ? customizedData.customized_price_inr * 100 : (activeTier.base_price_paise ?? (activeTier.base_price_inr ? activeTier.base_price_inr * 100 : 0))))}
+                      {formatPaise(customizedData?.customized_price_paise ?? activeTier.base_price_paise)}
                     </strong>
                     <span style={{ fontSize: "0.95rem", color: "var(--muted)", marginLeft: "6px" }}>
                       / weekly delivery

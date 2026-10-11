@@ -130,7 +130,7 @@ export default function OrdersPageClient() {
                 </div>
 
                 <div className="flex items-center gap-4 justify-between sm:justify-end">
-                  <span className="text-sm font-black text-emerald-950">{formatPaise(o.total_paise ?? (o.total_inr ? o.total_inr * 100 : 0))}</span>
+                  <span className="text-sm font-black text-emerald-950">{formatPaise(o.total_paise)}</span>
                   <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-emerald-700 transition" />
                 </div>
               </div>

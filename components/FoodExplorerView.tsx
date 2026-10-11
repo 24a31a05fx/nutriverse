@@ -380,7 +380,7 @@ export default function FoodExplorerView({ onAddToCart }: FoodExplorerViewProps)
                   >
                     <div>
                       <strong style={{ fontSize: "1.2rem", color: "var(--forest-900)" }}>
-                        {formatPaise(food.price_paise ?? (food.price_inr ? food.price_inr * 100 : 0))}
+                        {formatPaise(food.price_paise)}
                       </strong>
                       <span style={{ fontSize: "0.75rem", color: "var(--muted)", marginLeft: "4px" }}>
                         /{food.unit}

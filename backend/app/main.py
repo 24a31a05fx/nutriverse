@@ -8,6 +8,7 @@ import re
 import secrets
 import typing
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal, ROUND_HALF_UP
 from enum import Enum
 from typing import Any, Dict, Generator, List, Optional, Union
 from uuid import uuid4
@@ -212,7 +213,7 @@ class NutritionProfile(Base):
     bmr: Mapped[int] = mapped_column(Integer, default=0)
     food_preferences: Mapped[str] = mapped_column(Text, default="All foods")
     allergies: Mapped[str] = mapped_column(Text, default="None")
-    budget_inr: Mapped[int] = mapped_column(Integer, default=1500)
+    budget_paise: Mapped[int] = mapped_column(Integer, default=150000)
     goal: Mapped[str] = mapped_column(String(80), default="Balanced Nourishment")
     calculation_version: Mapped[str] = mapped_column(String(20), default="mifflin-st-jeor-v1")
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
@@ -646,7 +647,7 @@ class ProfilePayload(BaseModel):
     activity_level: float = Field(ge=1.2, le=1.9)
     food_preferences: Optional[str] = "All foods"
     allergies: Optional[str] = "None"
-    budget_inr: Optional[int] = 1500
+    budget_paise: Optional[int] = 150000
     goal: Optional[str] = "Balanced Nourishment"
 
 
@@ -679,8 +680,7 @@ class FoodCreatePayload(BaseModel):
     category: str
     nutrition_tags: List[str] = []
     description: str
-    price_paise: Optional[int] = Field(default=None, ge=0)
-    price_inr: Optional[int] = Field(default=None, ge=0)
+    price_paise: int = Field(ge=0)
     gst_rate_percent: Optional[float] = None
     unit: str = "500g"
     serving_size: str = "100g"
@@ -1467,7 +1467,7 @@ def save_profile(
             bmr=round(bmr),
             food_preferences=payload.food_preferences or "All foods",
             allergies=payload.allergies or "None",
-            budget_inr=payload.budget_inr or 1500,
+            budget_paise=payload.budget_paise or 150000,
             goal=payload.goal or "Balanced Nourishment",
             calculation_version="mifflin-st-jeor-v1",
         )
@@ -1482,7 +1482,7 @@ def save_profile(
         profile.calorie_target = daily_calories
         profile.food_preferences = payload.food_preferences or profile.food_preferences
         profile.allergies = payload.allergies or profile.allergies
-        profile.budget_inr = payload.budget_inr or profile.budget_inr
+        profile.budget_paise = payload.budget_paise or profile.budget_paise
         profile.goal = payload.goal or profile.goal
         profile.updated_at = datetime.now(timezone.utc)
 
@@ -1518,7 +1518,7 @@ def get_profile(
         "calorie_target": profile.calorie_target,
         "food_preferences": profile.food_preferences,
         "allergies": profile.allergies,
-        "budget_inr": profile.budget_inr,
+        "budget_paise": profile.budget_paise,
         "goal": profile.goal,
         "calculation_version": profile.calculation_version,
     }
@@ -1653,7 +1653,15 @@ def calculate_combination(
         total_carbs += food.carbs_g * qty
         total_fat += food.fat_g * qty
         total_fibre += food.fibre_g * qty
-        total_price += int(food.price_paise * qty)
+
+        # Round once, half-up integer paise calculation for monetary value
+        # Using Decimal ROUND_HALF_UP to avoid floating-point representation anomalies
+        item_price_paise = int(
+            (Decimal(str(food.price_paise)) * Decimal(str(qty))).quantize(
+                Decimal("1"), rounding=ROUND_HALF_UP
+            )
+        )
+        total_price += item_price_paise
 
         tags = json.loads(food.nutrition_tags or "[]")
         for t in tags:
@@ -1665,7 +1673,7 @@ def calculate_combination(
             "quantity": qty,
             "calories": round(food.calories * qty, 1),
             "protein_g": round(food.protein_g * qty, 1),
-            "price_paise": int(food.price_paise * qty),
+            "price_paise": item_price_paise,
         })
 
     return {
@@ -2413,14 +2421,13 @@ def admin_create_food(
     user: User = Depends(require_role([Role.admin.value])),
     session: Session = Depends(db),
 ) -> Food:
-    resolved_price = payload.price_paise if payload.price_paise is not None else (payload.price_inr * 100 if payload.price_inr is not None else 0)
     food = Food(
         name=payload.name,
         barcode=payload.barcode,
         category=payload.category,
         nutrition_tags=json.dumps(payload.nutrition_tags),
         description=payload.description,
-        price_paise=resolved_price,
+        price_paise=payload.price_paise,
         gst_rate_percent=payload.gst_rate_percent,
         unit=payload.unit,
         serving_size=payload.serving_size,

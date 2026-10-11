@@ -72,7 +72,7 @@ export default function PackTierClient({ initialTier }: { initialTier: string })
   const handleAdd = async () => {
     await handleAddPackToCart(pack.tier, pack.name, {
       tier: pack.tier,
-      base_price_paise: pack.base_price_paise ?? (pack.base_price_inr ? pack.base_price_inr * 100 : 0),
+      base_price_paise: pack.base_price_paise,
       items: items.map((i) => i.food_name),
     });
     setAdded(true);
@@ -105,7 +105,7 @@ export default function PackTierClient({ initialTier }: { initialTier: string })
         <div className="bg-emerald-900/40 p-6 rounded-2xl border border-emerald-800/80 text-center w-full md:w-auto shrink-0 space-y-3">
           <div>
             <span className="text-[10px] text-emerald-300 block">Weekly Package Price</span>
-            <span className="text-3xl font-black text-white">{formatPaise(pack.base_price_paise ?? (pack.base_price_inr ? pack.base_price_inr * 100 : 0))}</span>
+            <span className="text-3xl font-black text-white">{formatPaise(pack.base_price_paise)}</span>
           </div>
 
           <button

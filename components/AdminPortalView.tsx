@@ -201,7 +201,7 @@ export const AdminPortalView: React.FC<AdminPortalProps> = ({ user, onRefreshGlo
                         <option value="cancelled">Cancelled</option>
                       </select>
                       <span className="text-xs font-bold text-emerald-900">
-                        {formatPaise(order.total_paise ?? (order.total_inr ? order.total_inr * 100 : 0))}
+                        {formatPaise(order.total_paise)}
                       </span>
                     </div>
                   </div>

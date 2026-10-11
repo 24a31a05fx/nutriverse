@@ -348,7 +348,7 @@ export const ScannerView: React.FC<ScannerViewProps> = ({ onSelectFood, onAddToC
                   onClick={() => onAddToCart(scannedFood)}
                   className="flex-1 py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl transition text-center flex items-center justify-center gap-1"
                 >
-                  Add {formatPaise(scannedFood.price_paise ?? (scannedFood.price_inr ? scannedFood.price_inr * 100 : 0))} to Bag
+                  Add {formatPaise(scannedFood.price_paise)} to Bag
                 </button>
               </div>
             )}
