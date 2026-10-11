@@ -2,6 +2,10 @@ import type { Metadata } from "next";
 import { AppShell } from "@/components/AppShell";
 import OrderDetailClient from "./OrderDetailClient";
 
+export async function generateStaticParams() {
+  return [{ id: "demo-order" }];
+}
+
 export async function generateMetadata({
   params,
 }: {

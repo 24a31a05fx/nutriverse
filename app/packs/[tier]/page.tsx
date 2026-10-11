@@ -9,6 +9,14 @@ const tierTitles: Record<string, string> = {
   premium: "Calin Premium Pack (Deep Micronutrient Density & Healthy Fats)",
 };
 
+export async function generateStaticParams() {
+  return [
+    { tier: "basic" },
+    { tier: "minimal_plus" },
+    { tier: "premium" },
+  ];
+}
+
 export async function generateMetadata({
   params,
 }: {
