@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import AppHeader, { ActiveTab } from "@/components/AppHeader";
 import { StorefrontView } from "@/components/StorefrontView";
 import FoodExplorerView from "@/components/FoodExplorerView";
@@ -17,10 +18,11 @@ import { CartDrawer } from "@/components/CartDrawer";
 import { AssistantDrawer } from "@/components/AssistantDrawer";
 import { AuthModal } from "@/components/AuthModal";
 
-import { api, User, NutritionProfile, Food, Recipe, CartResponse } from "@/lib/api";
+import { api, User, NutritionProfile, Food, Recipe, CartResponse, logoutUser } from "@/lib/api";
 import { Bot, Sparkles, Heart, Activity } from "lucide-react";
 
 export default function Home() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<ActiveTab>("storefront");
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<NutritionProfile | null>(null);
@@ -70,39 +72,20 @@ export default function Home() {
     }
   }, []);
 
-  // Initialize Session: Auto-authenticate default customer if no token present
+  // Initialize Session: Check cookie session without forced auto-login
   useEffect(() => {
     const initSession = async () => {
-      const token = typeof window !== "undefined" ? localStorage.getItem("nutriverse_token") : null;
-      if (token) {
-        try {
-          const user = await api<User>("/auth/me");
+      try {
+        const user = await api<User>("/auth/me");
+        if (user) {
           setCurrentUser(user);
           await Promise.all([refreshProfile(), refreshCart()]);
-          return;
-        } catch {
-          localStorage.removeItem("nutriverse_token");
         }
-      }
-
-      // Default demo login as Alex Mercer (Customer) for seamless exploration
-      try {
-        const loginRes = await api<any>("/auth/login", {
-          method: "POST",
-          body: JSON.stringify({ email: "alex@nutriverse.local", password: "Customer123!" }),
-        });
-        if (loginRes.access_token) {
-          localStorage.setItem("nutriverse_token", loginRes.access_token);
-          setCurrentUser({
-            id: loginRes.user_id,
-            name: loginRes.name,
-            email: loginRes.email,
-            role: loginRes.role,
-          });
-          await Promise.all([refreshProfile(), refreshCart()]);
-        }
-      } catch (err) {
-        console.warn("Auto-demo login notice:", err);
+      } catch {
+        // Guest mode: catalog, packs, recipes, combinations, scanner are public
+        setCurrentUser(null);
+        setProfile(null);
+        setCart(null);
       }
     };
 
@@ -110,10 +93,8 @@ export default function Home() {
     initSession();
   }, [refreshCatalog, refreshCart, refreshProfile]);
 
-  const handleLogout = () => {
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("nutriverse_token");
-    }
+  const handleLogout = async () => {
+    await logoutUser();
     setCurrentUser(null);
     setProfile(null);
     setCart(null);
@@ -121,6 +102,10 @@ export default function Home() {
   };
 
   const handleAddToCart = async (food: Food, quantity = 1) => {
+    if (!currentUser) {
+      setAuthModalOpen(true);
+      return;
+    }
     try {
       await api("/cart/items", {
         method: "POST",
@@ -138,6 +123,10 @@ export default function Home() {
   };
 
   const handleAddPackToCart = async (tier: string, packName: string, customization: any) => {
+    if (!currentUser) {
+      setAuthModalOpen(true);
+      return;
+    }
     try {
       await api("/cart/items", {
         method: "POST",
@@ -157,6 +146,10 @@ export default function Home() {
   };
 
   const handleAddMultipleToCart = async (items: Array<{ food: Food; quantity: number }>) => {
+    if (!currentUser) {
+      setAuthModalOpen(true);
+      return;
+    }
     try {
       for (const item of items) {
         await api("/cart/items", {
@@ -202,8 +195,17 @@ export default function Home() {
         {activeTab === "storefront" && (
           <StorefrontView
             onNavigateTab={(tab) => {
-              setActiveTab(tab as ActiveTab);
-              window.scrollTo({ top: 0, behavior: "smooth" });
+              if (tab === "explorer") router.push("/explore");
+              else if (tab === "packs") router.push("/packs");
+              else if (tab === "recipes") router.push("/recipes");
+              else if (tab === "combinations") router.push("/combinations");
+              else if (tab === "scanner") router.push("/scanner");
+              else if (tab === "dashboard") router.push("/account");
+              else if (tab === "admin") router.push("/admin");
+              else {
+                setActiveTab(tab as ActiveTab);
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }
             }}
             onOpenOnboarding={() => setOnboardingOpen(true)}
           />
@@ -221,7 +223,7 @@ export default function Home() {
             currentUser={currentUser}
             onOpenAuth={() => setAuthModalOpen(true)}
             onRequestNutritionistReviewSuccess={() => {
-              alert("Nutritionist review request submitted! You can track clinical notes in your dashboard.");
+              alert("Nutritionist review request submitted! You can track nutritionist guidance in your dashboard.");
               setActiveTab("dashboard");
             }}
           />
@@ -355,7 +357,7 @@ export default function Home() {
                 Empowering individuals to understand their nutritional requirements, choose foods by biological contribution, and receive synergistic Calin Packs.
               </p>
               <div className="text-[11px] text-emerald-300 font-mono">
-                Mifflin–St Jeor Engine • EAN-13 Scanner • Clinical Triage
+                Mifflin–St Jeor Engine • EAN-13 Scanner • Nutritionist Guidance
               </div>
             </div>
 
@@ -421,7 +423,7 @@ export default function Home() {
                 </li>
                 <li>
                   <button onClick={() => { setActiveTab("admin"); window.scrollTo({ top: 0, behavior: "smooth" }); }} className="hover:text-white transition">
-                    Admin & Clinical
+                    Admin & Operations
                   </button>
                 </li>
                 <li>
@@ -437,7 +439,7 @@ export default function Home() {
           <div className="pt-8 border-t border-emerald-900/60 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-emerald-300/70">
             <p>© {new Date().getFullYear()} Nutriverse Ventures. All rights reserved.</p>
             <p className="text-[11px] max-w-lg text-center sm:text-right">
-              Disclaimer: Nutritional metrics are based on scientific equations (Mifflin–St Jeor) and verified whole food composition tables. Not medical diagnoses or clinical prescriptions.
+              Disclaimer: Nutritional metrics are based on scientific equations (Mifflin–St Jeor) and verified whole food composition tables. Not medical diagnoses or medical prescriptions.
             </p>
           </div>
         </div>

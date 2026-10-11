@@ -126,6 +126,9 @@ export const CustomerDashboardView: React.FC<CustomerDashboardProps> = ({
           <p className="text-[11px] text-gray-600">
             {profile ? `BMR: ${profile.bmr} kcal • ${profile.activity_level}× activity` : "Based on default reference profile"}
           </p>
+          <span className="inline-block text-[10px] text-amber-800 bg-amber-50 border border-amber-200/60 px-2 py-0.5 rounded-full font-medium mt-1">
+            Estimate, not medical advice
+          </span>
         </div>
 
         <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm space-y-1">
@@ -160,7 +163,7 @@ export const CustomerDashboardView: React.FC<CustomerDashboardProps> = ({
             <span className="text-xs text-gray-600 font-medium">Reviews</span>
           </div>
           <p className="text-[11px] text-gray-600">
-            {nutritionistRequests.filter((r) => r.status === "pending").length} pending clinical triage
+            {nutritionistRequests.filter((r) => r.status === "pending").length} pending nutritionist review
           </p>
         </div>
       </div>
@@ -372,7 +375,7 @@ export const CustomerDashboardView: React.FC<CustomerDashboardProps> = ({
                 <UserCheck className="w-8 h-8 text-gray-300 mx-auto" />
                 <p className="font-semibold text-gray-700">No requests submitted</p>
                 <p className="text-[11px]">
-                  Request a certified clinical review directly when configuring your Calin Pack.
+                  Request a certified nutritionist review directly when configuring your Calin Pack.
                 </p>
               </div>
             ) : (

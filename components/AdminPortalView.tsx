@@ -85,11 +85,11 @@ export const AdminPortalView: React.FC<AdminPortalProps> = ({ user, onRefreshGlo
       <div className="bg-slate-900 text-white p-6 sm:p-8 rounded-3xl shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
           <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-800 text-emerald-400 text-xs font-bold rounded-full mb-3 uppercase tracking-wider">
-            <ShieldCheck className="w-3.5 h-3.5" /> Operations & Clinical Console
+            <ShieldCheck className="w-3.5 h-3.5" /> Operations & Nutritionist Console
           </span>
           <h1 className="text-2xl sm:text-3xl font-bold">Nutriverse Control Center</h1>
           <p className="text-xs sm:text-sm text-slate-400 max-w-xl mt-1">
-            Signed in as <strong>{user?.name}</strong> ({user?.role?.toUpperCase()}). Manage live order lifecycles, stock alerts, and certified nutritionist clinical queues.
+            Signed in as <strong>{user?.name}</strong> ({user?.role?.toUpperCase()}). Manage live order lifecycles, stock alerts, and certified nutritionist review queues.
           </p>
         </div>
 
@@ -130,7 +130,7 @@ export const AdminPortalView: React.FC<AdminPortalProps> = ({ user, onRefreshGlo
           </div>
 
           <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm space-y-1">
-            <span className="text-xs font-semibold text-gray-600 block">Clinical Queue</span>
+            <span className="text-xs font-semibold text-gray-600 block">Nutritionist Queue</span>
             <span className="text-2xl font-black text-teal-700">{stats.counts.pending_nutritionist_reviews}</span>
             <span className="text-[10px] text-gray-600 block">Pending review</span>
           </div>
@@ -286,7 +286,7 @@ export const AdminPortalView: React.FC<AdminPortalProps> = ({ user, onRefreshGlo
                         rows={3}
                         value={guidanceText}
                         onChange={(e) => setGuidanceText(e.target.value)}
-                        placeholder="Provide evidence-based clinical guidance and pack adjustments..."
+                        placeholder="Provide evidence-based nutritional guidance and pack adjustments..."
                         className="w-full p-2.5 text-xs rounded-xl border border-teal-300 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                       />
                       <div className="flex justify-end gap-2">
@@ -307,7 +307,7 @@ export const AdminPortalView: React.FC<AdminPortalProps> = ({ user, onRefreshGlo
                           className="px-4 py-1.5 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white text-xs font-semibold rounded-xl transition flex items-center gap-1.5"
                         >
                           <Send className="w-3 h-3" />
-                          {submittingReview ? "Submitting..." : "Send Clinical Guidance"}
+                          {submittingReview ? "Submitting..." : "Send Nutritional Guidance"}
                         </button>
                       </div>
                     </div>

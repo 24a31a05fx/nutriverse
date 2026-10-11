@@ -25,7 +25,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   const [foodPreferences, setFoodPreferences] = useState("Vegetarian & Plant-Forward");
   const [allergies, setAllergies] = useState("None");
   const [budgetInr, setBudgetInr] = useState<number>(1500);
-  const [goal, setGoal] = useState("Balanced Longevity & Micronutrient Completeness");
+  const [goal, setGoal] = useState("Balanced Nutrition & Micronutrient Completeness");
   const [consentGiven, setConsentGiven] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -272,7 +272,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
             <div className="flex items-start gap-2 text-[11px] text-emerald-800 bg-white/60 p-2.5 rounded-xl border border-emerald-100/60">
               <Info className="w-4 h-4 shrink-0 text-emerald-600 mt-0.5" />
               <span>
-                <strong>Limitation Notice:</strong> This provides an evidence-based guideline for meal planning and Calin Pack sizing. Nutriverse never prescribes crash calorie deficits or medical treatments without qualified clinical supervision.
+                <strong>Limitation Notice:</strong> This provides an evidence-based guideline for meal planning and Calin Pack sizing. Nutriverse never prescribes crash calorie deficits or medical treatments without qualified healthcare supervision.
               </span>
             </div>
           </div>
@@ -329,7 +329,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                   onChange={(e) => setGoal(e.target.value)}
                   className="w-full px-3.5 py-2 text-xs rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                 >
-                  <option value="Balanced Longevity & Micronutrient Completeness">Balanced Longevity & Micronutrients</option>
+                  <option value="Balanced Nutrition & Micronutrient Completeness">Balanced Nutrition & Micronutrients</option>
                   <option value="Cardiovascular Health & Fiber Richness">Cardiovascular Health & Fiber</option>
                   <option value="High-Protein Athletic Recovery">High-Protein Athletic Recovery</option>
                   <option value="Metabolic Energy & Low Sugar Staples">Metabolic Energy & Low Sugar</option>

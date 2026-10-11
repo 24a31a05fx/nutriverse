@@ -52,6 +52,8 @@ export const metadata: Metadata = {
   },
 };
 
+import { NutriverseProvider } from "@/components/NutriverseProvider";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -67,7 +69,9 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body>{children}</body>
+      <body>
+        <NutriverseProvider>{children}</NutriverseProvider>
+      </body>
     </html>
   );
 }

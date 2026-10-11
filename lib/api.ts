@@ -1,4 +1,29 @@
-export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api";
+export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "/api";
+
+export function getCsrfToken(): string | null {
+  if (typeof document === "undefined") return null;
+  const match = document.cookie.match(/(?:^|;\s*)nutriverse_csrf=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+export async function ensureCsrfToken(): Promise<string | null> {
+  let token = getCsrfToken();
+  if (token) return token;
+  try {
+    const res = await fetch(`${API_URL}/auth/csrf`, {
+      method: "GET",
+      credentials: "include",
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return data.csrf_token || getCsrfToken();
+    }
+  } catch {
+    // best-effort fallback
+  }
+  return getCsrfToken();
+}
+
 
 export interface User {
   id: string;
@@ -148,18 +173,100 @@ export interface AdminStats {
   recent_orders: Array<{ id: string; status: string; total_inr: number; created_at: string }>;
 }
 
-export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const token = typeof window !== "undefined" ? localStorage.getItem("nutriverse_token") : null;
-  const headers = new Headers(options.headers);
-  headers.set("Content-Type", "application/json");
-  if (token) headers.set("Authorization", `Bearer ${token}`);
+interface ApiOptions extends RequestInit {
+  _isRetry?: boolean;
+}
 
-  const response = await fetch(`${API_URL}${path}`, { ...options, headers });
+export async function api<T>(path: string, options: ApiOptions = {}): Promise<T> {
+  const method = (options.method || "GET").toUpperCase();
+  const headers = new Headers(options.headers);
+  if (!headers.has("Content-Type") && !(options.body instanceof FormData)) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  // Double-submit CSRF for mutating operations
+  if (["POST", "PUT", "DELETE", "PATCH"].includes(method)) {
+    let csrf = getCsrfToken();
+    if (!csrf && typeof window !== "undefined") {
+      csrf = await ensureCsrfToken();
+    }
+    if (csrf) {
+      headers.set("X-CSRF-Token", csrf);
+    }
+  }
+
+  const response = await fetch(`${API_URL}${path}`, {
+    ...options,
+    headers,
+    credentials: options.credentials ?? "include",
+  });
+
+  if (response.status === 401 && !options._isRetry) {
+    const isAuthPath = path.startsWith("/auth/login") ||
+      path.startsWith("/auth/register") ||
+      path.startsWith("/auth/refresh") ||
+      path.startsWith("/auth/logout");
+
+    if (!isAuthPath && typeof window !== "undefined") {
+      try {
+        const refreshRes = await fetch(`${API_URL}/auth/refresh`, {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            ...(getCsrfToken() ? { "X-CSRF-Token": getCsrfToken()! } : {}),
+          },
+        });
+        if (refreshRes.ok) {
+          return api<T>(path, { ...options, _isRetry: true });
+        }
+      } catch {
+        // Refresh failed, let the 401 fall through
+      }
+    }
+  }
+
   if (!response.ok) {
     const errorJson = await response.json().catch(() => null);
     throw new Error(errorJson?.detail || `Request failed with status ${response.status}`);
   }
+
   return response.json() as Promise<T>;
 }
 
+export async function getCurrentUser(): Promise<User | null> {
+  try {
+    return await api<User>("/auth/me");
+  } catch {
+    return null;
+  }
+}
+
+export async function logoutUser(): Promise<void> {
+  try {
+    await api<{ status: string }>("/auth/logout", { method: "POST" });
+  } catch {
+    // best-effort logout
+  }
+}
+
+export interface AuthConfig {
+  app_env: string;
+  development: boolean;
+  demo_shortcuts_enabled: boolean;
+}
+
+export async function getAuthConfig(): Promise<AuthConfig> {
+  try {
+    return await api<AuthConfig>("/auth/config");
+  } catch {
+    return {
+      app_env: "development",
+      development: true,
+      demo_shortcuts_enabled: true,
+    };
+  }
+}
+
 export const money = (value: number) => `₹${Math.round(value).toLocaleString("en-IN")}`;
+

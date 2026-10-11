@@ -10,14 +10,14 @@
 The current Nutriverse repository is a working prototype with a Next.js 14 frontend and a FastAPI backend communicating over REST with SQLite. While the user-facing interface looks aligned with the brand design system and 12 unit tests pass in pytest, **the codebase is currently structured as an unversioned single-page prototype rather than a production-ready quick-commerce application.**
 
 ### Critical Architectural Deficiencies Identified:
-1. **Single-Page Tab Switcher vs. Real Routing:** The Next.js frontend has zero App Router subroutes. All navigation is state-based (`activeTab = "storefront" | "explorer" | ...`). Deep links (`/explore`, `/food/[id]`, `/p/[barcode]`, `/orders/[id]`) and browser history (back/forward) do not work.
-2. **Simulated Authentication & High-Risk Defaults:** Every unauthenticated visitor is automatically logged in as a demo user (`alex@nutriverse.local`). JWT tokens are stored in `localStorage` without refresh tokens or HttpOnly cookies. Hardcoded seed passwords and 1-click role-switching shortcuts run unconditionally without checking `APP_ENV=development`.
-3. **Monetary Integrity (INR vs. Paise):** Prices are stored as integer Rupees (`price_inr = 199`) instead of integer paise (`19900`). This is incompatible with Razorpay, standard Indian payment gateways, and fractional tax/delivery calculations.
-4. **Relational Normalization & Heavy JSON Column Anti-Pattern:** Core commerce and nutrition entities (`categories`, `nutrition_tags`, `order_items`, `calin_pack_items`, `addresses`, `allergens`, `delivery_zones`) do not exist as relational tables. Instead, JSON text strings are dumped into `foods.nutrition_tags`, `orders.items_json`, and `calin_pack_tiers.items_json`.
-5. **No Database Migrations:** Alembic is not installed or configured. Schema is created imperatively via `Base.metadata.create_all(engine)` on startup.
-6. **Rule-Based Mock AI vs. Tool-Calling LLM:** `/api/ai/chat` is a Python `if "iron" in q.lower():` string matcher rather than a tool-calling Claude integration.
-7. **Zero Frontend Automated Tests:** No Playwright e2e test suite exists.
-8. **Health Claim & Nutrition Guardrails:** Lacks ICMR-NIN RDA 2020 reference tables, safety floors (<1200 kcal for women / <1500 kcal for men), and guardrails for minors, pregnancy, or declared medical conditions.
+1. `[RESOLVED in 1a]` **Single-Page Tab Switcher vs. Real Routing:** The Next.js frontend has zero App Router subroutes. All navigation is state-based (`activeTab = "storefront" | "explorer" | ...`). Deep links (`/explore`, `/food/[id]`, `/p/[barcode]`, `/orders/[id]`) and browser history (back/forward) do not work.
+2. `[RESOLVED in 1a.1]` **Simulated Authentication & High-Risk Defaults:** Every unauthenticated visitor is automatically logged in as a demo user (`alex@nutriverse.local`). JWT tokens are stored in `localStorage` without refresh tokens or HttpOnly cookies. Hardcoded seed passwords and 1-click role-switching shortcuts run unconditionally without checking `APP_ENV=development`.
+3. `[OPEN - Phase 1b]` **Monetary Integrity (INR vs. Paise):** Prices are stored as integer Rupees (`price_inr = 199`) instead of integer paise (`19900`). This is incompatible with Razorpay, standard Indian payment gateways, and fractional tax/delivery calculations.
+4. `[OPEN - Phase 4 & 6]` **Relational Normalization & Heavy JSON Column Anti-Pattern:** Core commerce and nutrition entities (`categories`, `nutrition_tags`, `order_items`, `calin_pack_items`, `addresses`, `allergens`, `delivery_zones`) do not exist as relational tables. Instead, JSON text strings are dumped into `foods.nutrition_tags`, `orders.items_json`, and `calin_pack_tiers.items_json`.
+5. `[OPEN - Phase 1b]` **No Database Migrations:** Alembic is not installed or configured. Schema is created imperatively via `Base.metadata.create_all(engine)` on startup.
+6. `[DEFERRED - Post-Pilot]` **Rule-Based Mock AI vs. Tool-Calling LLM:** `/api/ai/chat` is a Python `if "iron" in q.lower():` string matcher rather than a tool-calling Claude integration.
+7. `[RESOLVED in 1a.1]` **Zero Frontend Automated Tests:** No Playwright e2e test suite exists.
+8. `[RESOLVED in 1a.1 (Copy) / OPEN - Phase 3 (Engine)]` **Health Claim & Nutrition Guardrails:** Lacks ICMR-NIN RDA 2020 reference tables, safety floors (<1200 kcal for women / <1500 kcal for men), and guardrails for minors, pregnancy, or declared medical conditions.
 
 ---
 
@@ -264,7 +264,7 @@ erDiagram
 
 ---
 
-## 4. Prioritized Gap List vs. Master Specification
+## 4. Prioritized Gap List vs. Master Specification (Superseded Plan)
 
 ```mermaid
 gantt
@@ -342,8 +342,110 @@ gantt
 
 ---
 
-## 5. Audit Conclusion
+## 5. Phase 0 Audit Conclusion (Historical)
 
 The application provides a solid UI foundation and a clear architectural direction. By addressing the single-page routing constraint, converting currency to paise, introducing normalized database models with Alembic migrations, and replacing simulated auth and mock AI with production-grade implementations, Nutriverse can successfully launch as a nutrition-first quick-commerce platform in Vijayawada.
 
-**Next Action:** Await user confirmation before proceeding to **PHASE 1 — FOUNDATION HARDENING**.
+---
+
+## 6. Phase 1a & 1a.1 Audit Update
+
+### 6.1 Status of Original Audit Findings (B1)
+
+Below is the verified status and commit attribution for the 8 original architectural findings identified during Phase 0:
+
+| # | Finding Description | Current Status | Resolving Commit(s) / Target Phase | Notes & Verification |
+|---|---|---|---|---|
+| 1 | **Single-Page Tab Switcher vs. Real Routing** | `RESOLVED in 1a` | `4658bfd`, `b47e17a` | Real App Router subroutes (`/explore`, `/food/[id]`, `/p/[barcode]`, `/packs`, `/packs/[tier]`, `/recipes`, `/recipes/[id]`, `/combinations`, `/scanner`, `/cart`, `/checkout`, `/account`, `/orders`, `/orders/[id]`, `/admin`, `/nutritionist`) implemented with `AppShell`, Next.js rewrites, dynamic SEO metadata, and browser history preservation. Verified via Playwright. |
+| 2 | **Simulated Authentication & High-Risk Defaults** | `RESOLVED in 1a.1` | `7a611be`, `a2006b0`, `7ee4058`, `80ccce7` | Automatic demo login removed from `app/page.tsx`. Guests browse freely. Bcrypt password hashing (`$2b$`), 15-minute access JWT, 7-day HttpOnly `nutriverse_refresh` cookies, double-submit CSRF protection (`nutriverse_csrf` + `X-CSRF-Token`), token family revocation on reuse detection (`family_id`), fail-safe production default (`APP_ENV=production` when unset), and strict refusal to start if `JWT_SECRET` is insecure, missing, or <32 characters outside development. Client guest cart merges server-side on login. |
+| 3 | **Monetary Integrity (INR vs. Paise)** | `OPEN` | Planned for **Phase 1b** | Storing all currency amounts as integer paise (`amount_paise = 19900` for ₹199.00) across DB columns, API payloads, discount rules, delivery charges, and Razorpay integrations. |
+| 4 | **Relational Normalization & Heavy JSON Columns** | `OPEN` | Planned for **Phase 4 & Phase 6** | Relational schemas for categories, nutritional tags, normalized order items, delivery zones, allergen matrices, and variant relationships. |
+| 5 | **No Database Migrations (Alembic)** | `OPEN` | Planned for **Phase 1b** | Alembic migration baseline, PostgreSQL driver configuration, migration scripts, and docker-compose Postgres service. |
+| 6 | **Rule-Based Mock AI vs. Tool-Calling LLM** | `DEFERRED` | **Post-Pilot** | Deferred to post-pilot roadmap. Design constraints recorded: Claude tool-calling with strict grounding in retrieved, cited food records and escalation to nutritionist guidance for any clinical questions. |
+| 7 | **Zero Frontend Automated Tests** | `RESOLVED in 1a.1` | `b47e17a`, `d7da160` | Comprehensive Playwright test suite established (`npm run test:e2e`). 9/9 automated end-to-end tests covering unauthenticated storefront browsing, catalog exploration, Calin Pack tier displays, packaging QR lookup (`/p/[barcode]`), scanner view, dev shortcuts gating, real member registration + logout + login, guest bag checkout redirect & post-login return, and admin RBAC denial. |
+| 8 | **Health Claim & Nutrition Guardrails** | `RESOLVED in 1a.1` (Copy) / `OPEN` (Engine) | `ae5d7fe` (Copy sweep) / Planned for **Phase 3** (Engine) | All medicalized phrasing ("clinical consultation", "cellular longevity", "longevity medicine") removed across UI and backend strings in favor of compliant terms ("nutritionist review", "general nutritional guidance"). Mandatory "estimate, not medical advice" disclaimer added to account calorie summary. Full ICMR-NIN RDA 2020 calculations and safety floors (>1200 kcal women / >1500 kcal men) planned for Phase 3. |
+
+---
+
+### 6.2 Decision Record: Stack (B2)
+
+- **Decision:** **KEEP** the existing stack (**Next.js 14 + TypeScript**, **FastAPI**, **SQLAlchemy 2.0**, **Pydantic v2**). Do **NOT** migrate to NestJS, Prisma, or a pnpm monorepo.
+- **Reason:** Phase 0 and Phase 1a architectural work is already complete, integrated, and verified by passing test suites (23 pytest tests, 9 Playwright e2e tests). FastAPI auto-generates OpenAPI documentation and is exceptionally well-suited for Python-based nutritional computations, optimization algorithms (Mifflin–St Jeor, ICMR-NIN RDA, Calin pack solver), and data science tasks. A full rewrite to a TypeScript backend would delay shipping customer-facing features without technical justification.
+- **Tooling Substitutions:**
+
+| Playbook assumed (TS stack) | Nutriverse uses (Active stack) | Rationale & Status |
+|---|---|---|
+| NestJS | **FastAPI** | Generates OpenAPI 3.0 automatically, native Pydantic v2 schema validation, high-performance async endpoints. |
+| Prisma | **SQLAlchemy 2.0 + Alembic** | Standard Python ORM with type annotations (`Mapped[...]`), declarative models, and robust migration tooling. Baseline planned in Phase 1b. |
+| BullMQ | **ARQ (Redis)** | Lightweight, async Python job queue for asynchronous notifications and background tasks when needed. |
+| Generated client from NestJS OpenAPI | **`openapi-typescript`** from FastAPI OpenAPI | Automatic client types generated directly from FastAPI's `/openapi.json`. CI pipeline will enforce failure if client types are stale. |
+| Jest | **pytest** (backend) + **Playwright** (e2e frontend) | Idiomatic test runners for Python and modern Next.js App Router applications. |
+| pnpm monorepo | **Current layout** (Frontend in root, backend in `backend/`) | Clean, decoupled separation of concerns without monorepo orchestration overhead. |
+
+---
+
+### 6.3 Decision Record: Authentication (B3)
+
+- **Decision:** Retain and standardize on **Email + Password authentication** with rotating HttpOnly refresh tokens and double-submit CSRF cookies (`nutriverse_csrf` cookie + `X-CSRF-Token` header).
+- **Phone OTP Status:** **DEFERRED** as an optional supplementary authentication channel for post-pilot consideration.
+- **Reason:** Phone OTP requires contracting an Indian SMS aggregator, provisioning a DLT (Distributed Ledger Technology) sender entity under TRAI regulations, registering message templates, and paying recurring per-SMS carrier fees. Email + password provides an immediate, zero-marginal-cost, secure authentication foundation suitable for the Vijayawada pilot.
+
+---
+
+### 6.4 Tracked Requirements Borrowed into the Roadmap (B4)
+
+The following core requirements have been incorporated as tracked deliverables across the roadmap:
+
+1. **Server-Authoritative Money:** All prices, GST, discounts, packaging fees, delivery charges, stock quantities, and nutritional totals are calculated and enforced server-side. Client-provided prices are never trusted. All currency is tracked in integer paise (`amount_paise`). *(Phase 1b)*
+2. **Checkout & Payments:** Transactional stock reservation with time-based TTL expiry; order-time food and pricing item snapshots; explicit payment/order state machine (`created` $\rightarrow$ `stock_reserved` $\rightarrow$ `payment_pending` $\rightarrow$ `paid` $\rightarrow$ `confirmed` $\rightarrow$ `preparing` $\rightarrow$ `out_for_delivery` $\rightarrow$ `delivered` / `cancelled` / `refunded`); idempotency keys on checkout mutation; Razorpay test-mode integration with server-side HMAC signature verification; raw webhook payload verification; idempotent webhook handling; full refund lifecycle. *(Phase 6)*
+3. **Catalog Architecture:** Strict separation between product identity (`FoodProduct`) and purchasable variants (`ProductVariant`); every nutrient value explicitly models unit, reference basis (per 100 g / per 100 ml / per serving), and empirical source citation; missing values are never imputed as zero; PostgreSQL full-text and trigram search; cursor-based pagination; Redis cache with explicit invalidation triggers on inventory/catalog updates. *(Phase 4)*
+4. **Physical Packaging & Scanner:** Optical camera stream requested only after explicit user interaction (click/tap); QR code payloads strictly validated and sanitized to Nutriverse packaging format before navigation; manual EAN-13 input fallback; camera media stream immediately stopped on component unmount; public packaging landing at `/p/[barcode]`. *(Phase 5)*
+5. **Calin Packs Generator:** Deterministic, versioned packaging algorithm; customer-declared allergens and dietary exclusions enforced as hard non-negotiable constraints; plain-language nutritional explanation provided for every bundle item; modeled intake gaps explicitly presented as nutritional guidance, never clinical deficiencies; infeasible targets receive transparent explanations rather than compromised bundles. *(Phase 7)*
+6. **Nutrition Engine & Safety Guardrails:** Hard prohibition on generating personalized targets for minors (<18 years), pregnant/lactating individuals, or declared medical conditions; absolute caloric floors of 1,200 kcal/day (women) and 1,500 kcal/day (men); reference baseline aligned with ICMR-NIN RDA 2020; every numerical output and recommendation labeled with mandatory notice: *"Nutritional estimate for guidance, not medical advice"*; calculation algorithm version recorded with every stored result. *(Phase 3)*
+7. **Order Tracking & Lifecycle:** Persisted-state-driven order status (zero fake timer progress simulations); Server-Sent Events (SSE) dispatch with polling fallback; audited administrative state transitions; reorder workflow re-validates current price, live inventory stock, user allergens, and serviceable pincode. *(Phase 8)*
+8. **Administrative Governance:** Validation guardrail blocking publication of any food nutrient record missing source citation, measurement unit, reference basis, or verified status; bulk CSV import with pre-commit validation preview and per-row error reporting; immutable audit log for stock adjustments and price changes; controlled, authenticated asset uploads. *(Phase 9)*
+9. **Privacy, Compliance & Security:** Full compliance with the Digital Personal Data Protection (DPDP) Act 2023, including explicit user consent capture, personal data access, data export (JSON/CSV), and account deletion; sensitive health profile attributes encrypted at rest with documented key management; strict exclusion of health data, OTPs, or authentication tokens from application logs. *(Phase 12)*
+10. **UX Quality & Resilience:** Standardized loading skeletons, empty states, network error banners, and offline fallback states on all views; responsive layout verification across mobile viewports (375px, 390px), tablets, and desktop; keyboard navigation accessibility; Lighthouse mobile performance score $\ge 85$. *(Phase 11)*
+11. **Verified Food Data Grounding:** Initial catalog populated with 40–60 verified Indian whole-food staples sourced from Indian Food Composition Tables (IFCT 2017) or USDA FoodData Central, complete with source citations and retrieval timestamps; images exclusively derived from public-domain / Creative Commons sources or owned photography with an explicit license manifest; honest reporting of catalog counts with zero artificial padding. *(Phase 10)*
+
+---
+
+### 6.5 Revised Roadmap (B5)
+
+*Replaces the previous Phase 1–9 plan (retained above under "Superseded").*
+
+| Order | Phase | Scope |
+|---|---|---|
+| 1 | **1a.1** | **Completed:** Fail-safe production defaults (`APP_ENV=production`), `JWT_SECRET` safety validation, refresh-token family reuse detection, client guest cart with automatic server merge, Playwright e2e coverage expansion (registration, guest checkout, admin RBAC denial), and compliant copy sweep. |
+| 2 | **1b** | **Foundation Hardening:** Alembic migration baseline, integer paise currency conversion, PostgreSQL driver, database indexes, API rate limiting (`slowapi`), Postgres in `docker-compose.yml`, and extended e2e test validation. |
+| 3 | **2** | **Design System & Visual Language:** Final brand color palette and typography decisions (colors locked until this phase), design token consolidation, reusable component library. |
+| 4 | **3** | **Health Profile & Nutrition Engine:** Mifflin–St Jeor computation, safety floors (>1200 kcal women / >1500 kcal men), ICMR-NIN RDA 2020 reference tables, minor/pregnancy/medical guardrails, versioned calculations. |
+| 5 | **4** | **Relational Catalog & Search:** Normalized entities (`Product`, `Variant`, `NutrientValue`), empirical source citations, Postgres full-text & trigram search, cursor pagination, Redis cache with invalidation. |
+| 6 | **5** | **Product Detail, Scanner & QR Packaging:** Dedicated product pages (`/food/[id]`), `/p/[barcode]` packaging landing, camera barcode scanner with manual EAN-13 fallback and unmount stream cleanup. |
+| 7 | **6** | **Cart, Checkout & Payments:** Vijayawada pincode check, delivery slots, Razorpay test mode (cards/UPI/COD), atomic stock reservation with TTL, server-authoritative money validation, webhook signature verification. |
+| 8 | **7** | **Calin Pack Generator:** Deterministic pack generator, hard allergen exclusion rules, intake gap modeling without clinical claims, substitution engine with macro parity. |
+| 9 | **8** | **Orders & Live Fulfillment:** Persisted state machine, SSE dispatch updates with polling fallback, validated transitions, reorder stock/allergen re-verification, customer order history. |
+| 10 | **9** | **Operations & Admin Console:** Catalog CRUD with citation requirements, CSV import preview with row errors, stock inventory thresholds, audit logging, admin order status dispatch. |
+| 11 | **10** | **Seed Data Grounding:** 40–60 verified Indian whole-food staples (IFCT 2017 / USDA), source citations, retrieval dates, licensed image manifests, honest count reporting. |
+| 12 | **11** | **UI States, Accessibility & Responsiveness:** Comprehensive loading, empty, and error states; 375px/390px mobile responsiveness; keyboard navigation accessibility; Lighthouse mobile $\ge 85$. |
+| 13 | **12** | **Security, Privacy & Performance:** DPDP Act 2023 consent, export, and deletion workflows; health data encryption at rest; audit logging sanitization; security headers and rate limiting. |
+| 14 | **13** | **Final Audit & Launch Readiness:** End-to-end verification across catalog, checkout, orders, and admin; deployment validation. |
+| **DEFERRED** | **Post-Pilot** | **Post-Pilot Initiatives:** Subscriptions (idempotent, skip/pause-safe recurring orders), AI Assistant (Claude tool-calling restricted to retrieved, cited records with medical escalation), Nutritionist Consultation workflow (private notes with customer confirmation of pack revisions), and Phone OTP (contingent on SMS aggregator and Indian DLT registration). |
+
+#### Recorded Design Constraints for Deferred Capabilities:
+- **AI Assistant ("Nourish"):** Must answer exclusively from retrieved, cited catalog and profile records. Must explicitly escalate any clinical or diagnosis inquiries to human healthcare professionals. Never provide medical prescriptions.
+- **Subscriptions:** Must implement idempotent, skip/pause-safe recurring schedules with explicit payment authorization tokens, pre-charge notifications, and automatic cancellation on repeated payment failures.
+- **Nutritionist Review Workflow:** Nutritionist assessment notes and internal remarks must remain strictly segregated and inaccessible to customer APIs. Any pack modification suggested by a nutritionist requires explicit customer review and acceptance before taking effect.
+- **Phone OTP:** Must implement strict rate limiting (e.g. max 3 OTP requests per phone per hour), hash OTP storage with short TTL (5 minutes), and maintain Indian DLT registration records for regulatory audits.
+
+---
+
+### 6.6 Working Agreement (Process) (B6)
+
+To maintain rigorous engineering quality and auditability throughout the project lifecycle:
+
+1. **Branch Hygiene:** Work strictly on dedicated git branches per phase (e.g., `phase-1a`, `phase-1b`). Commit in small, logical steps with descriptive conventional commit messages. Tag before executing risky migrations or schema updates. Never merge to `main` without explicit approval.
+2. **Verbatim Command Verification:** Always execute and display real, unedited terminal command output for `pytest`, `npm run test:e2e` (Playwright), builds, and database migrations. Never fabricate test outputs or write "PASSED" without actual process execution.
+3. **Transparent Integrations:** Zero simulated or mocked production responses in production paths. Clearly document any missing external credentials (e.g., Razorpay test keys, SMS gateway IDs) with honest status notes.
+4. **Phase Stop Points:** Conclude each phase with a comprehensive status report and **STOP**. Do not commence subsequent phases until explicit user approval ("continue") is granted.
+

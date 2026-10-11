@@ -1,16 +1,30 @@
 from __future__ import annotations
 
+import hashlib
 import json
+import re
+import secrets
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any, Dict, Generator, List, Optional, Union
 from uuid import uuid4
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Query, status
+import bcrypt
+from fastapi import (
+    Cookie,
+    Depends,
+    FastAPI,
+    Header,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+    status,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from jose import JWTError, jwt
-from passlib.context import CryptContext
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from passlib.hash import pbkdf2_sha256
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy import (
     Boolean,
@@ -22,6 +36,7 @@ from sqlalchemy import (
     Text,
     create_engine,
     select,
+    update,
 )
 from sqlalchemy.orm import (
     DeclarativeBase,
@@ -34,10 +49,49 @@ from sqlalchemy.orm import (
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    app_env: str = "production"
     database_url: str = "sqlite:///./nutriverse.db"
-    jwt_secret: str = "change-this-in-production-long-secure-key"
-    jwt_expire_minutes: int = 120
+    jwt_secret: str = ""
+    jwt_expire_minutes: int = 15
+    refresh_token_expire_days: int = 7
     allowed_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
+    cookie_secure: bool = False
+    cookie_samesite: str = "lax"
+
+
+INSECURE_JWT_SECRETS = {
+    "change-this-in-production-long-secure-key",
+    "nutriverse_dev_secret_key_change_in_production_12345",
+    "replace-with-a-long-random-secret",
+    "secret",
+    "jwtsecret",
+    "default_secret",
+    "your-secret-key-here",
+    "changeme",
+    "password",
+    "12345678901234567890123456789012",
+}
+
+
+def get_jwt_secret(current_settings: Optional[Settings] = None) -> str:
+    s = current_settings or settings
+    sec = (s.jwt_secret or "").strip()
+    if sec:
+        return sec
+    if s.app_env == "development":
+        return "nutriverse_dev_secret_key_change_in_production_12345"
+    return ""
+
+
+def validate_secret_safety(current_settings: Settings) -> None:
+    if current_settings.app_env != "development":
+        sec = (current_settings.jwt_secret or "").strip()
+        if not sec or sec in INSECURE_JWT_SECRETS or len(sec) < 32:
+            raise RuntimeError(
+                f"CRITICAL SECRET SAFETY FAILURE: In '{current_settings.app_env}' environment, "
+                f"JWT_SECRET must be set to a cryptographically secure string of at least 32 characters "
+                f"and cannot be a known insecure default."
+            )
 
 
 settings = Settings()
@@ -48,8 +102,28 @@ engine = create_engine(
     else {},
 )
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
-pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 ALGORITHM = "HS256"
+
+
+class PasswordHasher:
+    @staticmethod
+    def hash(password: str) -> str:
+        return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt(rounds=12)).decode("utf-8")
+
+    @staticmethod
+    def verify(password: str, hashed: str) -> bool:
+        try:
+            if hashed.startswith("$2a$") or hashed.startswith("$2b$"):
+                return bcrypt.checkpw(password.encode("utf-8"), hashed.encode("utf-8"))
+            elif hashed.startswith("$pbkdf2-sha256$"):
+                return pbkdf2_sha256.verify(password, hashed)
+            return False
+        except Exception:
+            return False
+
+    @staticmethod
+    def needs_rehash(hashed: str) -> bool:
+        return not (hashed.startswith("$2b$") or hashed.startswith("$2a$"))
 
 
 class Base(DeclarativeBase):
@@ -225,6 +299,17 @@ class AuditLog(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
+class RefreshToken(Base):
+    __tablename__ = "refresh_tokens"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    family_id: Mapped[str] = mapped_column(String(36), index=True, default=lambda: str(uuid4()))
+    token_hash: Mapped[str] = mapped_column(String(64), index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, index=True)
+    revoked: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
 # Create all tables in database
 Base.metadata.create_all(engine)
 
@@ -237,34 +322,209 @@ def db() -> Generator[Session, None, None]:
         session.close()
 
 
-def token_for(user: User) -> str:
+def create_access_token(user: User) -> str:
     expires = datetime.now(timezone.utc) + timedelta(minutes=settings.jwt_expire_minutes)
     return jwt.encode(
-        {"sub": user.id, "name": user.name, "role": user.role, "exp": expires},
-        settings.jwt_secret,
+        {"sub": user.id, "name": user.name, "role": user.role, "type": "access", "exp": expires},
+        get_jwt_secret(),
         algorithm=ALGORITHM,
     )
 
 
+# Backward compatibility alias
+def token_for(user: User) -> str:
+    return create_access_token(user)
+
+
+def create_refresh_token(user: User, session: Session, family_id: Optional[str] = None) -> str:
+    raw_token = secrets.token_urlsafe(48)
+    token_hash = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+    expires = datetime.now(timezone.utc) + timedelta(days=settings.refresh_token_expire_days)
+    token_family = family_id or str(uuid4())
+    db_token = RefreshToken(
+        user_id=user.id,
+        family_id=token_family,
+        token_hash=token_hash,
+        expires_at=expires,
+        revoked=False,
+    )
+    session.add(db_token)
+    session.commit()
+    return raw_token
+
+
+def verify_and_rotate_refresh_token(raw_token: str, session: Session) -> tuple[User, str]:
+    token_hash = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+    record = session.scalar(
+        select(RefreshToken).where(RefreshToken.token_hash == token_hash)
+    )
+    if not record:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token",
+        )
+
+    # 1. Reuse detection: if token is already revoked, revoke whole token family!
+    if record.revoked:
+        if record.family_id:
+            session.execute(
+                update(RefreshToken)
+                .where(RefreshToken.family_id == record.family_id)
+                .values(revoked=True)
+            )
+        else:
+            session.execute(
+                update(RefreshToken)
+                .where(RefreshToken.user_id == record.user_id)
+                .values(revoked=True)
+            )
+        session.commit()
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token reuse detected. Session terminated.",
+        )
+
+    # 2. Expiration check
+    rec_exp = record.expires_at
+    now_cmp = datetime.now(timezone.utc) if rec_exp.tzinfo is not None else datetime.utcnow()
+    if rec_exp <= now_cmp:
+        record.revoked = True
+        session.commit()
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Expired refresh token",
+        )
+
+    # 3. Legitimate rotation: revoke presented token
+    record.revoked = True
+    session.commit()
+
+    user = session.get(User, record.user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User account not found",
+        )
+
+    # Issue new rotated token preserving family_id
+    new_raw = create_refresh_token(user, session, family_id=record.family_id)
+    return user, new_raw
+
+
+def revoke_refresh_token(raw_token: str, session: Session) -> bool:
+    token_hash = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+    record = session.scalar(
+        select(RefreshToken).where(RefreshToken.token_hash == token_hash)
+    )
+    if record:
+        record.revoked = True
+        if record.family_id:
+            session.execute(
+                update(RefreshToken)
+                .where(RefreshToken.family_id == record.family_id)
+                .values(revoked=True)
+            )
+        session.commit()
+        return True
+    return False
+
+
+def generate_csrf_token() -> str:
+    return secrets.token_hex(24)
+
+
+def set_auth_cookies(
+    response: Response,
+    access_token: str,
+    refresh_token: str,
+    csrf_token: str,
+) -> None:
+    is_secure = settings.cookie_secure or settings.app_env == "production"
+    # Access token (15 mins)
+    response.set_cookie(
+        key="nutriverse_access",
+        value=access_token,
+        max_age=settings.jwt_expire_minutes * 60,
+        httponly=True,
+        secure=is_secure,
+        samesite="lax",
+        path="/",
+    )
+    # Refresh token (7 days)
+    response.set_cookie(
+        key="nutriverse_refresh",
+        value=refresh_token,
+        max_age=settings.refresh_token_expire_days * 86400,
+        httponly=True,
+        secure=is_secure,
+        samesite="lax",
+        path="/api/auth",
+    )
+    # CSRF token (readable by client)
+    response.set_cookie(
+        key="nutriverse_csrf",
+        value=csrf_token,
+        max_age=settings.refresh_token_expire_days * 86400,
+        httponly=False,
+        secure=is_secure,
+        samesite="lax",
+        path="/",
+    )
+
+
+def clear_auth_cookies(response: Response) -> None:
+    is_secure = settings.cookie_secure or settings.app_env == "production"
+    response.delete_cookie(key="nutriverse_access", path="/", secure=is_secure, samesite="lax")
+    response.delete_cookie(key="nutriverse_refresh", path="/api/auth", secure=is_secure, samesite="lax")
+    response.delete_cookie(key="nutriverse_csrf", path="/", secure=is_secure, samesite="lax")
+
+
+def verify_csrf(request: Request) -> None:
+    if request.method in ("POST", "PUT", "DELETE", "PATCH"):
+        cookie_access = request.cookies.get("nutriverse_access")
+        cookie_refresh = request.cookies.get("nutriverse_refresh")
+        auth_header = request.headers.get("authorization")
+        # If user relies on cookie auth
+        if (cookie_access or cookie_refresh) and (not auth_header or not auth_header.startswith("Bearer ")):
+            csrf_cookie = request.cookies.get("nutriverse_csrf")
+            csrf_header = request.headers.get("x-csrf-token")
+            if not csrf_cookie or not csrf_header or csrf_cookie != csrf_header:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="CSRF token mismatch or missing",
+                )
+
+
 def current_user(
+    request: Request,
     authorization: Optional[str] = Header(default=None),
     session: Session = Depends(db),
 ) -> User:
-    if not authorization or not authorization.startswith("Bearer "):
+    token: Optional[str] = None
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization[7:].strip()
+    elif request.cookies.get("nutriverse_access"):
+        token = request.cookies.get("nutriverse_access")
+        verify_csrf(request)
+
+    if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication required",
         )
     try:
-        payload = jwt.decode(
-            authorization[7:], settings.jwt_secret, algorithms=[ALGORITHM]
-        )
-        user = session.get(User, payload.get("sub"))
+        payload = jwt.decode(token, get_jwt_secret(), algorithms=[ALGORITHM])
+        user_id = payload.get("sub")
+        if not user_id:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+        user = session.get(User, user_id)
     except JWTError:
         user = None
+
     if not user:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid session"
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired session",
         )
     return user
 
@@ -287,6 +547,23 @@ class AuthPayload(BaseModel):
     email: str = Field(min_length=5, max_length=255)
     password: str = Field(min_length=8, max_length=128)
     role: Optional[str] = Role.user.value
+
+    @field_validator("password")
+    @classmethod
+    def validate_password_rules(cls, v: str) -> str:
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters long")
+        if len(v) > 128:
+            raise ValueError("Password cannot exceed 128 characters")
+        if not re.search(r"[A-Z]", v):
+            raise ValueError("Password must contain at least one uppercase letter")
+        if not re.search(r"[a-z]", v):
+            raise ValueError("Password must contain at least one lowercase letter")
+        if not re.search(r"\d", v):
+            raise ValueError("Password must contain at least one digit")
+        if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", v):
+            raise ValueError("Password must contain at least one special character")
+        return v
 
 
 class LoginPayload(BaseModel):
@@ -439,31 +716,32 @@ from contextlib import asynccontextmanager
 
 def seed_initial_data() -> None:
     with SessionLocal() as session:
-        # 1. Seed Initial Accounts if not present
-        if not session.scalar(select(User).where(User.email == "alex@nutriverse.local")):
-            session.add_all(
-                [
-                    User(
-                        name="Alex Mercer (Customer)",
-                        email="alex@nutriverse.local",
-                        password_hash=pwd_context.hash("Customer123!"),
-                        role=Role.user.value,
-                    ),
-                    User(
-                        name="Dr. Priya Nair (Nutritionist)",
-                        email="dr.priya@nutriverse.local",
-                        password_hash=pwd_context.hash("Nutritionist123!"),
-                        role=Role.nutritionist.value,
-                    ),
-                    User(
-                        name="Store Admin (Operations)",
-                        email="admin@nutriverse.local",
-                        password_hash=pwd_context.hash("AdminPass123!"),
-                        role=Role.admin.value,
-                    ),
-                ]
-            )
-            session.commit()
+        # 1. Seed Initial Accounts ONLY when APP_ENV == "development"
+        if settings.app_env == "development":
+            if not session.scalar(select(User).where(User.email == "alex@nutriverse.local")):
+                session.add_all(
+                    [
+                        User(
+                            name="Alex Mercer (Customer)",
+                            email="alex@nutriverse.local",
+                            password_hash=PasswordHasher.hash("Customer123!"),
+                            role=Role.user.value,
+                        ),
+                        User(
+                            name="Dr. Priya Nair (Nutritionist)",
+                            email="dr.priya@nutriverse.local",
+                            password_hash=PasswordHasher.hash("Nutritionist123!"),
+                            role=Role.nutritionist.value,
+                        ),
+                        User(
+                            name="Store Admin (Operations)",
+                            email="admin@nutriverse.local",
+                            password_hash=PasswordHasher.hash("AdminPass123!"),
+                            role=Role.admin.value,
+                        ),
+                    ]
+                )
+                session.commit()
 
         # 2. Seed Foods Catalog
         if session.scalar(select(Food.id)) is None:
@@ -605,7 +883,7 @@ def seed_initial_data() -> None:
                     barcode="8901234567896",
                     category="Nuts & Seeds",
                     nutrition_tags=json.dumps(["fat_sources", "protein_rich", "vitamin_sources", "mineral_sources"]),
-                    description="Heart-healthy monounsaturated fats, Vitamin E, and magnesium for sustained cellular energy.",
+                    description="Heart-healthy monounsaturated fats, Vitamin E, and magnesium for sustained energy.",
                     price_inr=499,
                     unit="500g pouch",
                     serving_size="30g",
@@ -851,7 +1129,7 @@ def seed_initial_data() -> None:
                 ),
                 Recipe(
                     name="Warm Quinoa & Steamed Broccoli Power Lunch",
-                    description="Complete protein profile combined with cellular sulforaphane from lightly steamed broccoli florets.",
+                    description="Complete protein profile combined with natural sulforaphane from lightly steamed broccoli florets.",
                     instructions="1. Rinse white quinoa and simmer in 2x water with a pinch of sea salt for 14 minutes until fluffy.\n2. Steam broccoli florets for exactly 3 to 4 minutes to maximize sulforaphane bioavailability.\n3. Toss together with roasted sweet potato cubes.\n4. Drizzle with cold-pressed oil and roasted almond flakes.",
                     prep_method="Simmer & Steam",
                     prep_time_mins=22,
@@ -873,12 +1151,9 @@ def seed_initial_data() -> None:
             session.commit()
 
 
-# Seed initial data on module import
-seed_initial_data()
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    validate_secret_safety(settings)
     seed_initial_data()
     yield
 
@@ -912,8 +1187,38 @@ def ready(session: Session = Depends(db)) -> dict[str, str]:
 
 
 # Auth Endpoints
+@app.get("/api/auth/csrf")
+def get_csrf(response: Response, request: Request) -> dict[str, str]:
+    existing = request.cookies.get("nutriverse_csrf")
+    token = existing if existing else generate_csrf_token()
+    is_secure = settings.cookie_secure or settings.app_env == "production"
+    response.set_cookie(
+        key="nutriverse_csrf",
+        value=token,
+        max_age=settings.refresh_token_expire_days * 86400,
+        httponly=False,
+        secure=is_secure,
+        samesite="lax",
+        path="/",
+    )
+    return {"csrf_token": token}
+
+
+@app.get("/api/auth/config")
+def get_auth_config() -> dict[str, Any]:
+    return {
+        "app_env": settings.app_env,
+        "development": settings.app_env == "development",
+        "demo_shortcuts_enabled": settings.app_env == "development",
+    }
+
+
 @app.post("/api/auth/register")
-def register(payload: AuthPayload, session: Session = Depends(db)) -> dict[str, Any]:
+def register(
+    payload: AuthPayload,
+    response: Response,
+    session: Session = Depends(db),
+) -> dict[str, Any]:
     email_clean = payload.email.lower().strip()
     if session.scalar(select(User).where(User.email == email_clean)):
         raise HTTPException(status_code=409, detail="Email already registered")
@@ -922,15 +1227,22 @@ def register(payload: AuthPayload, session: Session = Depends(db)) -> dict[str, 
     user = User(
         name=payload.name.strip(),
         email=email_clean,
-        password_hash=pwd_context.hash(payload.password),
+        password_hash=PasswordHasher.hash(payload.password),
         role=user_role,
     )
     session.add(user)
     session.commit()
     session.refresh(user)
+
+    access_token = create_access_token(user)
+    refresh_token = create_refresh_token(user, session)
+    csrf_token = generate_csrf_token()
+    set_auth_cookies(response, access_token, refresh_token, csrf_token)
+
     return {
-        "access_token": token_for(user),
+        "access_token": access_token,
         "token_type": "bearer",
+        "csrf_token": csrf_token,
         "user_id": user.id,
         "name": user.name,
         "email": user.email,
@@ -939,19 +1251,87 @@ def register(payload: AuthPayload, session: Session = Depends(db)) -> dict[str, 
 
 
 @app.post("/api/auth/login")
-def login(payload: LoginPayload, session: Session = Depends(db)) -> dict[str, Any]:
+def login(
+    payload: LoginPayload,
+    response: Response,
+    session: Session = Depends(db),
+) -> dict[str, Any]:
     email_clean = payload.email.lower().strip()
     user = session.scalar(select(User).where(User.email == email_clean))
-    if not user or not pwd_context.verify(payload.password, user.password_hash):
+    if not user or not PasswordHasher.verify(payload.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid email or password")
+
+    # If hash is legacy pbkdf2, rehash to bcrypt
+    if PasswordHasher.needs_rehash(user.password_hash):
+        user.password_hash = PasswordHasher.hash(payload.password)
+        session.commit()
+
+    access_token = create_access_token(user)
+    refresh_token = create_refresh_token(user, session)
+    csrf_token = generate_csrf_token()
+    set_auth_cookies(response, access_token, refresh_token, csrf_token)
+
     return {
-        "access_token": token_for(user),
+        "access_token": access_token,
         "token_type": "bearer",
+        "csrf_token": csrf_token,
         "user_id": user.id,
         "name": user.name,
         "email": user.email,
         "role": user.role,
     }
+
+
+class RefreshPayload(BaseModel):
+    refresh_token: Optional[str] = None
+
+
+@app.post("/api/auth/refresh")
+def refresh(
+    response: Response,
+    request: Request,
+    payload: Optional[RefreshPayload] = None,
+    session: Session = Depends(db),
+) -> dict[str, Any]:
+    verify_csrf(request)
+    raw_token = (
+        request.cookies.get("nutriverse_refresh")
+        or (payload.refresh_token if payload else None)
+    )
+    if not raw_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token required",
+        )
+
+    user, new_refresh_token = verify_and_rotate_refresh_token(raw_token, session)
+    new_access_token = create_access_token(user)
+    csrf_token = generate_csrf_token()
+    set_auth_cookies(response, new_access_token, new_refresh_token, csrf_token)
+
+    return {
+        "access_token": new_access_token,
+        "token_type": "bearer",
+        "csrf_token": csrf_token,
+        "user_id": user.id,
+        "name": user.name,
+        "email": user.email,
+        "role": user.role,
+    }
+
+
+@app.post("/api/auth/logout")
+def logout(
+    response: Response,
+    request: Request,
+    session: Session = Depends(db),
+) -> dict[str, str]:
+    verify_csrf(request)
+    raw_token = request.cookies.get("nutriverse_refresh")
+    if raw_token:
+        revoke_refresh_token(raw_token, session)
+    clear_auth_cookies(response)
+    return {"status": "logged_out"}
 
 
 @app.get("/api/auth/me")
@@ -1118,7 +1498,7 @@ def get_categories(session: Session = Depends(db)) -> dict[str, Any]:
     conventional = list(session.scalars(select(Food.category).distinct()))
     nutrition_categories = [
         {"id": "protein_rich", "label": "Protein-Rich Foods", "description": "High-density plant & clean dairy protein to support tissue repair and satiety."},
-        {"id": "carb_rich", "label": "Complex Carbohydrates", "description": "Slow-release low-GI complex carbs for steady cellular stamina."},
+        {"id": "carb_rich", "label": "Complex Carbohydrates", "description": "Slow-release low-GI complex carbs for steady energy stamina."},
         {"id": "fat_sources", "label": "Healthy Fat Sources", "description": "Monounsaturated and Omega-3 rich whole foods for hormone & brain vitality."},
         {"id": "vitamin_sources", "label": "Vitamin Powerhouses", "description": "Bioavailable vitamins A, C, Folate, and K from vibrant raw produce."},
         {"id": "mineral_sources", "label": "Essential Minerals", "description": "Magnesium, potassium, zinc, and trace minerals for enzyme function."},
@@ -1404,6 +1784,92 @@ def remove_cart_item(
     session.delete(item)
     session.commit()
     return {"status": "removed"}
+
+
+class MergeCartItemPayload(BaseModel):
+    item_type: str = "food"  # food | pack
+    food_id: Optional[str] = None
+    pack_tier: Optional[str] = None
+    pack_name: Optional[str] = None
+    customization: Optional[Dict[str, Any]] = None
+    quantity: int = Field(ge=1, default=1)
+
+
+class MergeCartPayload(BaseModel):
+    items: List[MergeCartItemPayload]
+
+
+@app.post("/api/cart/merge")
+def merge_cart(
+    payload: MergeCartPayload,
+    request: Request,
+    user: User = Depends(current_user),
+    session: Session = Depends(db),
+) -> dict[str, Any]:
+    verify_csrf(request)
+    for it in payload.items:
+        if it.item_type == "pack":
+            if not it.pack_tier:
+                continue
+            tier_record = session.scalar(select(CalinPackTier).where(CalinPackTier.tier == it.pack_tier))
+            if not tier_record:
+                continue
+            server_unit_price = tier_record.base_price_inr
+            existing_pack = session.scalar(
+                select(CartItem).where(
+                    CartItem.user_id == user.id,
+                    CartItem.item_type == "pack",
+                    CartItem.pack_tier == it.pack_tier,
+                )
+            )
+            if existing_pack:
+                existing_pack.quantity += it.quantity
+            else:
+                session.add(
+                    CartItem(
+                        user_id=user.id,
+                        item_type="pack",
+                        pack_tier=it.pack_tier,
+                        pack_name=tier_record.name,
+                        customization_json=json.dumps(it.customization or {}),
+                        unit_price_inr=server_unit_price,
+                        quantity=it.quantity,
+                    )
+                )
+        else:
+            if not it.food_id:
+                continue
+            food = session.get(Food, it.food_id)
+            if not food or not food.active or food.stock_qty <= 0:
+                continue
+
+            existing_item = session.scalar(
+                select(CartItem).where(
+                    CartItem.user_id == user.id,
+                    CartItem.item_type == "food",
+                    CartItem.food_id == food.id,
+                )
+            )
+            current_qty = existing_item.quantity if existing_item else 0
+            # Sum quantities and cap at available stock
+            merged_qty = min(current_qty + it.quantity, food.stock_qty)
+            if merged_qty > 0:
+                if existing_item:
+                    existing_item.quantity = merged_qty
+                    existing_item.unit_price_inr = food.price_inr  # Authoritative server price
+                else:
+                    session.add(
+                        CartItem(
+                            user_id=user.id,
+                            item_type="food",
+                            food_id=food.id,
+                            unit_price_inr=food.price_inr,  # Authoritative server price
+                            quantity=merged_qty,
+                        )
+                    )
+
+    session.commit()
+    return get_cart(user=user, session=session)
 
 
 @app.post("/api/orders/checkout")

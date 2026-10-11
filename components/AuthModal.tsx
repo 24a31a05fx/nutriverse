@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
-import { X, Lock, Mail, User as UserIcon, Shield, Sparkles, ArrowRight, CheckCircle2 } from "lucide-react";
-import { api, User } from "@/lib/api";
+import React, { useState, useEffect } from "react";
+import { X, Lock, Mail, User as UserIcon, Shield, Sparkles, ArrowRight, CheckCircle2, Info } from "lucide-react";
+import { api, User, getAuthConfig, AuthConfig } from "@/lib/api";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -18,6 +18,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
   const [role, setRole] = useState<"user" | "nutritionist" | "admin">("user");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [authConfig, setAuthConfig] = useState<AuthConfig | null>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      getAuthConfig().then(setAuthConfig).catch(() => {});
+      setMode("login");
+      setError(null);
+      setName("");
+      setEmail("");
+      setPassword("");
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -35,17 +47,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
         body: JSON.stringify(payload),
       });
 
-      if (res.access_token) {
-        localStorage.setItem("nutriverse_token", res.access_token);
-        const loggedInUser: User = {
-          id: res.user_id,
-          name: res.name,
-          email: res.email,
-          role: res.role,
-        };
-        onAuthSuccess(loggedInUser);
-        onClose();
-      }
+      const loggedInUser: User = {
+        id: res.user_id,
+        name: res.name,
+        email: res.email,
+        role: res.role,
+      };
+      onAuthSuccess(loggedInUser);
+      onClose();
     } catch (err: any) {
       setError(err?.message || "Authentication failed. Please check credentials.");
     } finally {
@@ -61,16 +70,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
         method: "POST",
         body: JSON.stringify({ email: userEmail, password: userPass }),
       });
-      if (res.access_token) {
-        localStorage.setItem("nutriverse_token", res.access_token);
-        onAuthSuccess({
-          id: res.user_id,
-          name: res.name,
-          email: res.email,
-          role: res.role,
-        });
-        onClose();
-      }
+      onAuthSuccess({
+        id: res.user_id,
+        name: res.name,
+        email: res.email,
+        role: res.role,
+      });
+      onClose();
     } catch (err: any) {
       setError(err?.message || "Quick sign in failed.");
     } finally {
@@ -107,38 +113,41 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
             </div>
           )}
 
-          {/* Quick 1-Click Role Switcher for Testing */}
-          <div className="p-3.5 bg-emerald-50/70 border border-emerald-200/80 rounded-2xl space-y-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-900 block flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-emerald-700" /> 1-Click Demonstration Accounts
-            </span>
-            <div className="grid grid-cols-3 gap-1.5">
-              <button
-                type="button"
-                onClick={() => handleQuickLogin("alex@nutriverse.local", "Customer123!")}
-                className="p-2 bg-white hover:bg-emerald-100/70 border border-emerald-200 rounded-xl text-center transition group"
-              >
-                <span className="text-[11px] font-bold text-gray-900 block group-hover:text-emerald-900">Alex</span>
-                <span className="text-[10px] text-gray-600 block">Customer</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickLogin("dr.priya@nutriverse.local", "Nutritionist123!")}
-                className="p-2 bg-white hover:bg-teal-100/70 border border-teal-200 rounded-xl text-center transition group"
-              >
-                <span className="text-[11px] font-bold text-gray-900 block group-hover:text-teal-900">Dr. Priya</span>
-                <span className="text-[10px] text-gray-600 block">Nutritionist</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickLogin("admin@nutriverse.local", "AdminPass123!")}
-                className="p-2 bg-white hover:bg-slate-100 border border-slate-300 rounded-xl text-center transition group"
-              >
-                <span className="text-[11px] font-bold text-gray-900 block group-hover:text-slate-900">Admin</span>
-                <span className="text-[10px] text-gray-600 block">Operations</span>
-              </button>
+          {/* Quick 1-Click Role Switcher for Testing (GATED to development env) */}
+          {authConfig?.demo_shortcuts_enabled && (
+            <div className="p-3.5 bg-emerald-50/70 border border-emerald-200/80 rounded-2xl space-y-2">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-900 block flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-emerald-700" /> Dev Shortcuts (Local Testing Only)
+              </span>
+              <div className="grid grid-cols-3 gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => handleQuickLogin("alex@nutriverse.local", "Customer123!")}
+                  className="p-2 bg-white hover:bg-emerald-100/70 border border-emerald-200 rounded-xl text-center transition group"
+                >
+                  <span className="text-[11px] font-bold text-gray-900 block group-hover:text-emerald-900">Alex</span>
+                  <span className="text-[10px] text-gray-600 block">Customer</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleQuickLogin("dr.priya@nutriverse.local", "Nutritionist123!")}
+                  className="p-2 bg-white hover:bg-teal-100/70 border border-teal-200 rounded-xl text-center transition group"
+                >
+                  <span className="text-[11px] font-bold text-gray-900 block group-hover:text-teal-900">Dr. Priya</span>
+                  <span className="text-[10px] text-gray-600 block">Nutritionist</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleQuickLogin("admin@nutriverse.local", "AdminPass123!")}
+                  className="p-2 bg-white hover:bg-slate-100 border border-slate-300 rounded-xl text-center transition group"
+                >
+                  <span className="text-[11px] font-bold text-gray-900 block group-hover:text-slate-900">Admin</span>
+                  <span className="text-[10px] text-gray-600 block">Operations</span>
+                </button>
+              </div>
             </div>
-          </div>
+          )}
+
 
           {/* Standard Form */}
           <form onSubmit={handleSubmit} className="space-y-3.5">
