@@ -163,6 +163,17 @@ export const NutriverseProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       setAllRecipes(recipesData);
     } catch (err) {
       console.error("Error loading foods catalog:", err);
+      // Automatic retry after 600ms if backend or proxy was reconnecting
+      setTimeout(async () => {
+        try {
+          const [foodsData, recipesData] = await Promise.all([
+            api<Food[]>("/foods"),
+            api<Recipe[]>("/recipes"),
+          ]);
+          setAllFoods(foodsData);
+          setAllRecipes(recipesData);
+        } catch {}
+      }, 600);
     }
   }, []);
 

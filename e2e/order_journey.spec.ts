@@ -213,7 +213,10 @@ test.describe("Phase 1b Playwright Suite", () => {
       for (let i = 0; i < 50; i++) {
         try {
           const res = await fetch("http://127.0.0.1:8000/health");
-          if (res.ok) break;
+          if (res.ok) {
+            const proxyRes = await fetch("http://localhost:3000/api/foods").catch(() => null);
+            if (proxyRes && proxyRes.ok) break;
+          }
         } catch {}
         await new Promise((r) => setTimeout(r, 200));
       }
@@ -224,11 +227,14 @@ test.describe("Phase 1b Playwright Suite", () => {
     page,
     context,
   }) => {
-    // 1. Ensure backend is ready and clear cookies to ensure clean guest session
-    for (let i = 0; i < 30; i++) {
+    // 1. Ensure Next.js proxy is primed and returns f-frac-1
+    for (let i = 0; i < 50; i++) {
       try {
-        const res = await fetch("http://127.0.0.1:8000/health");
-        if (res.ok) break;
+        const res = await fetch("http://localhost:3000/api/foods");
+        if (res.ok) {
+          const foods = await res.json();
+          if (Array.isArray(foods) && foods.some((f: any) => f.id === "f-frac-1")) break;
+        }
       } catch {}
       await new Promise((r) => setTimeout(r, 200));
     }
