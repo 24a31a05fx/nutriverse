@@ -15,7 +15,7 @@ import {
   ChefHat,
   Info,
 } from "lucide-react";
-import { Food, Recipe, money } from "../lib/api";
+import { Food, Recipe, formatPaise, money } from "../lib/api";
 
 interface FoodDetailModalProps {
   food: Food | null;
@@ -127,7 +127,7 @@ export default function FoodDetailModal({
               {food.description}
             </p>
             <div style={{ fontSize: "1.35rem", fontWeight: 800, color: "var(--forest-900)" }}>
-              {money(food.price_inr)} <small style={{ fontSize: "0.85rem", color: "var(--muted)", fontWeight: 500 }}>/ {food.unit}</small>
+              {formatPaise(food.price_paise ?? (food.price_inr ? food.price_inr * 100 : 0))} <small style={{ fontSize: "0.85rem", color: "var(--muted)", fontWeight: 500 }}>/ {food.unit}</small>
             </div>
           </div>
         </div>
@@ -298,7 +298,7 @@ export default function FoodDetailModal({
               </button>
             </div>
             <span style={{ fontSize: "0.95rem", fontWeight: 700, color: "var(--forest-900)" }}>
-              = {money(food.price_inr * quantity)}
+              = {formatPaise((food.price_paise ?? (food.price_inr ? food.price_inr * 100 : 0)) * quantity)}
             </span>
           </div>
 

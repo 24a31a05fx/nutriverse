@@ -12,7 +12,7 @@ import {
   ChevronLeft,
   Sparkles,
 } from "lucide-react";
-import { Recipe, Food, money } from "@/lib/api";
+import { Recipe, Food, formatPaise, money } from "@/lib/api";
 import { useNutriverse } from "@/components/NutriverseProvider";
 
 export default function RecipeDetailClient({ recipe }: { recipe: Recipe }) {
@@ -115,7 +115,7 @@ export default function RecipeDetailClient({ recipe }: { recipe: Recipe }) {
                         href={`/food/${inStore.id}`}
                         className="text-[10px] text-emerald-700 hover:underline font-semibold block"
                       >
-                        Available in store ({money(inStore.price_inr)})
+                        Available in store ({formatPaise(inStore.price_paise ?? (inStore.price_inr ? inStore.price_inr * 100 : 0))})
                       </Link>
                     )}
                   </div>

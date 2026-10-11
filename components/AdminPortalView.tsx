@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { User, AdminStats, OrderModel, NutritionistRequestModel, api, money } from "@/lib/api";
+import { User, AdminStats, OrderModel, NutritionistRequestModel, api, formatPaise, money } from "@/lib/api";
 import { ShieldCheck, Package, AlertTriangle, Users, Calendar, CheckCircle, RefreshCw, Send, ChevronRight, FileText } from "lucide-react";
 
 interface AdminPortalProps {
@@ -201,7 +201,7 @@ export const AdminPortalView: React.FC<AdminPortalProps> = ({ user, onRefreshGlo
                         <option value="cancelled">Cancelled</option>
                       </select>
                       <span className="text-xs font-bold text-emerald-900">
-                        {money(order.total_inr)}
+                        {formatPaise(order.total_paise ?? (order.total_inr ? order.total_inr * 100 : 0))}
                       </span>
                     </div>
                   </div>

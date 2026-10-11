@@ -45,10 +45,10 @@ function clearStoredGuestCart(): void {
   } catch {}
 }
 
-const PACK_TIER_META: Record<string, { name: string; price: number }> = {
-  basic: { name: "Calin Basic Pack", price: 699 },
-  minimal_plus: { name: "Calin Minimal Plus Pack", price: 1099 },
-  premium: { name: "Calin Premium Pack", price: 1699 },
+const PACK_TIER_META: Record<string, { name: string; price_paise: number }> = {
+  basic: { name: "Calin Basic Pack", price_paise: 69900 },
+  minimal_plus: { name: "Calin Minimal Plus Pack", price_paise: 109900 },
+  premium: { name: "Calin Premium Pack", price_paise: 169900 },
 };
 
 function buildCartResponseFromGuestItems(items: GuestCartItem[], catalog: Food[] = []): CartResponse {
@@ -64,14 +64,14 @@ function buildCartResponseFromGuestItems(items: GuestCartItem[], catalog: Food[]
       name = tierMeta.name;
       category = "Calin Pack";
       unit = "1 bundle";
-      unit_price = tierMeta.price;
+      unit_price = tierMeta.price_paise;
     } else if (it.food_id) {
       const food = catalog.find((f) => f.id === it.food_id);
       if (food) {
         name = food.name;
         category = food.category;
         unit = food.unit;
-        unit_price = food.price_inr;
+        unit_price = food.price_paise ?? (food.price_inr ? food.price_inr * 100 : 0);
       }
     }
 
@@ -86,20 +86,25 @@ function buildCartResponseFromGuestItems(items: GuestCartItem[], catalog: Food[]
       name,
       category,
       unit,
-      unit_price_inr: unit_price,
+      unit_price_paise: unit_price,
       quantity: it.quantity,
-      total_inr: itemTotal,
+      total_paise: itemTotal,
+      unit_price_inr: Math.floor(unit_price / 100),
+      total_inr: Math.floor(itemTotal / 100),
       customization: it.customization,
       stock_available: true,
     };
   });
 
-  const delivery_fee = subtotal > 800 || subtotal === 0 ? 0 : 49;
+  const delivery_fee = subtotal >= 80000 || subtotal === 0 ? 0 : 4900;
   return {
     items: cartItems,
-    subtotal_inr: subtotal,
-    delivery_fee_inr: delivery_fee,
-    total_inr: subtotal + delivery_fee,
+    subtotal_paise: subtotal,
+    delivery_fee_paise: delivery_fee,
+    total_paise: subtotal + delivery_fee,
+    subtotal_inr: Math.floor(subtotal / 100),
+    delivery_fee_inr: Math.floor(delivery_fee / 100),
+    total_inr: Math.floor((subtotal + delivery_fee) / 100),
   };
 }
 
@@ -194,7 +199,6 @@ export const NutriverseProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             item_type: it.item_type,
             food_id: it.food_id,
             pack_tier: it.pack_tier,
-            pack_name: it.pack_name,
             customization: it.customization,
             quantity: it.quantity,
           })),

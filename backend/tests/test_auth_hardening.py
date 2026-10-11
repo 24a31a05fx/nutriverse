@@ -511,7 +511,7 @@ def test_guest_cart_merge_quantities_stock_and_server_prices():
         # Find or create a food with specific stock and price
         food = s.scalar(select(Food).where(Food.active.is_(True)))
         food_id = food.id
-        server_price = food.price_inr
+        server_price = food.price_paise
         food.stock_qty = 5  # Set stock limit to 5
         s.commit()
 
@@ -524,15 +524,15 @@ def test_guest_cart_merge_quantities_stock_and_server_prices():
     assert add_res.status_code == 200
 
     # 2. Guest cart had:
-    # - 4 units of food_id with a fake malicious client price of 1 INR and manipulated name
-    # - 1 unit of Basic pack with a fake client price of 5 INR
+    # - 4 units of food_id with a fake malicious client price of 100 paise (1 INR) and manipulated name
+    # - 1 unit of Basic pack with a fake client price of 500 paise (5 INR)
     merge_payload = {
         "items": [
             {
                 "item_type": "food",
                 "food_id": food_id,
                 "quantity": 4,  # 2 existing + 4 guest = 6, but stock is 5 -> should cap at 5
-                "unit_price_inr": 1,
+                "unit_price_paise": 100,
                 "price": 1,
                 "name": "Malicious Injected Price 1 INR",
             },
@@ -540,8 +540,8 @@ def test_guest_cart_merge_quantities_stock_and_server_prices():
                 "item_type": "pack",
                 "pack_tier": "basic",
                 "quantity": 1,
-                "unit_price_inr": 5,
-                "base_price_inr": 5,
+                "unit_price_paise": 500,
+                "base_price_paise": 500,
                 "name": "Malicious 5 INR Pack",
             },
         ]
@@ -555,16 +555,16 @@ def test_guest_cart_merge_quantities_stock_and_server_prices():
     food_cart_item = next(it for it in cart_data["items"] if it.get("food_id") == food_id)
     # Quantity must be capped at stock (5)
     assert food_cart_item["quantity"] == 5
-    # Unit price must be server-authoritative (server_price), and client price (1) is completely ignored
-    assert food_cart_item["unit_price_inr"] == server_price
-    assert food_cart_item["unit_price_inr"] != 1
-    assert food_cart_item["total_inr"] == server_price * 5
+    # Unit price must be server-authoritative (server_price in paise), and client price (100) is completely ignored
+    assert food_cart_item["unit_price_paise"] == server_price
+    assert food_cart_item["unit_price_paise"] != 100
+    assert food_cart_item["total_paise"] == server_price * 5
 
-    # Pack item must have server base price (699 for basic pack), and client price (5) is completely ignored
+    # Pack item must have server base price (69900 paise for basic pack), and client price (500) is completely ignored
     pack_cart_item = next(it for it in cart_data["items"] if it["item_type"] == "pack")
     assert pack_cart_item["pack_tier"] == "basic"
-    assert pack_cart_item["unit_price_inr"] == 699
-    assert pack_cart_item["unit_price_inr"] != 5
+    assert pack_cart_item["unit_price_paise"] == 69900
+    assert pack_cart_item["unit_price_paise"] != 500
     assert pack_cart_item["quantity"] == 1
 
 

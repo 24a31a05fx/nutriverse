@@ -17,9 +17,8 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Priority: explicit config url (if passed via command), then env var, then settings default
-cmd_url = config.get_main_option("sqlalchemy.url")
-db_url = os.environ.get("DATABASE_URL") or cmd_url or settings.database_url
+ini_url = config.get_main_option("sqlalchemy.url")
+db_url = os.environ.get("DATABASE_URL") or (ini_url if ini_url and "driver://" not in ini_url else settings.database_url)
 config.set_main_option("sqlalchemy.url", db_url)
 
 target_metadata = Base.metadata

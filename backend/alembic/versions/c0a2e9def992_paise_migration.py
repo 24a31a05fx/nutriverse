@@ -1,0 +1,80 @@
+"""paise_migration
+
+Revision ID: c0a2e9def992
+Revises: a5d2dd3a04f9
+Create Date: 2026-10-11 10:54:22.557985
+
+"""
+from typing import Sequence, Union
+
+from alembic import op
+import sqlalchemy as sa
+
+
+# revision identifiers, used by Alembic.
+revision: str = 'c0a2e9def992'
+down_revision: Union[str, None] = 'a5d2dd3a04f9'
+branch_labels: Union[str, Sequence[str], None] = None
+depends_on: Union[str, Sequence[str], None] = None
+
+
+def upgrade() -> None:
+    """Upgrade schema: migrate price_inr to price_paise (integer, x100) and add gst_rate_percent."""
+    # 1. foods: rename price_inr -> price_paise, add gst_rate_percent, multiply by 100
+    with op.batch_alter_table("foods", schema=None) as batch_op:
+        batch_op.alter_column("price_inr", new_column_name="price_paise", existing_type=sa.Integer())
+        batch_op.add_column(sa.Column("gst_rate_percent", sa.Float(), nullable=True))
+    op.execute("UPDATE foods SET price_paise = price_paise * 100")
+
+    # 2. calin_pack_tiers: rename base_price_inr -> base_price_paise, multiply by 100
+    with op.batch_alter_table("calin_pack_tiers", schema=None) as batch_op:
+        batch_op.alter_column("base_price_inr", new_column_name="base_price_paise", existing_type=sa.Integer())
+    op.execute("UPDATE calin_pack_tiers SET base_price_paise = base_price_paise * 100")
+
+    # 3. cart_items: rename unit_price_inr -> unit_price_paise, multiply by 100
+    with op.batch_alter_table("cart_items", schema=None) as batch_op:
+        batch_op.alter_column("unit_price_inr", new_column_name="unit_price_paise", existing_type=sa.Integer())
+    op.execute("UPDATE cart_items SET unit_price_paise = unit_price_paise * 100")
+
+    # 4. orders: rename subtotal_inr -> subtotal_paise, delivery_fee_inr -> delivery_fee_paise, total_inr -> total_paise, multiply by 100
+    with op.batch_alter_table("orders", schema=None) as batch_op:
+        batch_op.alter_column("subtotal_inr", new_column_name="subtotal_paise", existing_type=sa.Integer())
+        batch_op.alter_column("delivery_fee_inr", new_column_name="delivery_fee_paise", existing_type=sa.Integer())
+        batch_op.alter_column("total_inr", new_column_name="total_paise", existing_type=sa.Integer())
+    op.execute("UPDATE orders SET subtotal_paise = subtotal_paise * 100, delivery_fee_paise = delivery_fee_paise * 100, total_paise = total_paise * 100")
+
+    # 5. subscriptions: rename price_per_delivery_inr -> price_per_delivery_paise, multiply by 100
+    with op.batch_alter_table("subscriptions", schema=None) as batch_op:
+        batch_op.alter_column("price_per_delivery_inr", new_column_name="price_per_delivery_paise", existing_type=sa.Integer())
+    op.execute("UPDATE subscriptions SET price_per_delivery_paise = price_per_delivery_paise * 100")
+
+
+def downgrade() -> None:
+    """Downgrade schema: revert price_paise to price_inr (integer, /100) and drop gst_rate_percent."""
+    # 1. subscriptions: divide by 100, rename back
+    op.execute("UPDATE subscriptions SET price_per_delivery_paise = CAST(price_per_delivery_paise / 100 AS INTEGER)")
+    with op.batch_alter_table("subscriptions", schema=None) as batch_op:
+        batch_op.alter_column("price_per_delivery_paise", new_column_name="price_per_delivery_inr", existing_type=sa.Integer())
+
+    # 2. orders: divide by 100, rename back
+    op.execute("UPDATE orders SET subtotal_paise = CAST(subtotal_paise / 100 AS INTEGER), delivery_fee_paise = CAST(delivery_fee_paise / 100 AS INTEGER), total_paise = CAST(total_paise / 100 AS INTEGER)")
+    with op.batch_alter_table("orders", schema=None) as batch_op:
+        batch_op.alter_column("subtotal_paise", new_column_name="subtotal_inr", existing_type=sa.Integer())
+        batch_op.alter_column("delivery_fee_paise", new_column_name="delivery_fee_inr", existing_type=sa.Integer())
+        batch_op.alter_column("total_paise", new_column_name="total_inr", existing_type=sa.Integer())
+
+    # 3. cart_items: divide by 100, rename back
+    op.execute("UPDATE cart_items SET unit_price_paise = CAST(unit_price_paise / 100 AS INTEGER)")
+    with op.batch_alter_table("cart_items", schema=None) as batch_op:
+        batch_op.alter_column("unit_price_paise", new_column_name="unit_price_inr", existing_type=sa.Integer())
+
+    # 4. calin_pack_tiers: divide by 100, rename back
+    op.execute("UPDATE calin_pack_tiers SET base_price_paise = CAST(base_price_paise / 100 AS INTEGER)")
+    with op.batch_alter_table("calin_pack_tiers", schema=None) as batch_op:
+        batch_op.alter_column("base_price_paise", new_column_name="base_price_inr", existing_type=sa.Integer())
+
+    # 5. foods: divide by 100, rename back, drop gst_rate_percent
+    op.execute("UPDATE foods SET price_paise = CAST(price_paise / 100 AS INTEGER)")
+    with op.batch_alter_table("foods", schema=None) as batch_op:
+        batch_op.alter_column("price_paise", new_column_name="price_inr", existing_type=sa.Integer())
+        batch_op.drop_column("gst_rate_percent")

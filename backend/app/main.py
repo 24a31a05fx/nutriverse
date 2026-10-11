@@ -173,7 +173,8 @@ class Food(Base):
     category: Mapped[str] = mapped_column(String(80), index=True)  # Conventional category (Legumes, Greens, etc.)
     nutrition_tags: Mapped[str] = mapped_column(Text, default="[]")  # JSON array of tags: protein_rich, fiber_rich, etc.
     description: Mapped[str] = mapped_column(Text)
-    price_inr: Mapped[int] = mapped_column(Integer, default=199)
+    price_paise: Mapped[int] = mapped_column(Integer, default=19900)
+    gst_rate_percent: Mapped[Optional[float]] = mapped_column(Float, nullable=True, default=None)
     unit: Mapped[str] = mapped_column(String(40), default="500g")
     serving_size: Mapped[str] = mapped_column(String(40), default="100g")
     stock_qty: Mapped[int] = mapped_column(Integer, default=50)
@@ -212,7 +213,7 @@ class CalinPackTier(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
     tier: Mapped[str] = mapped_column(String(40), unique=True)  # basic, minimal_plus, premium
     name: Mapped[str] = mapped_column(String(80))
-    base_price_inr: Mapped[int] = mapped_column(Integer)
+    base_price_paise: Mapped[int] = mapped_column(Integer)
     description: Mapped[str] = mapped_column(Text)
     target_audience: Mapped[str] = mapped_column(Text)
     max_substitutions: Mapped[int] = mapped_column(Integer, default=2)
@@ -229,7 +230,7 @@ class CartItem(Base):
     pack_tier: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
     pack_name: Mapped[Optional[str]] = mapped_column(String(80), nullable=True)
     customization_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    unit_price_inr: Mapped[int] = mapped_column(Integer, default=0)
+    unit_price_paise: Mapped[int] = mapped_column(Integer, default=0)
     quantity: Mapped[int] = mapped_column(Integer, default=1)
 
 
@@ -238,9 +239,9 @@ class Order(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
     status: Mapped[str] = mapped_column(String(40), default="placed")  # placed, confirmed, preparing, out_for_delivery, delivered, cancelled
-    subtotal_inr: Mapped[int] = mapped_column(Integer, default=0)
-    delivery_fee_inr: Mapped[int] = mapped_column(Integer, default=0)
-    total_inr: Mapped[int] = mapped_column(Integer)
+    subtotal_paise: Mapped[int] = mapped_column(Integer, default=0)
+    delivery_fee_paise: Mapped[int] = mapped_column(Integer, default=0)
+    total_paise: Mapped[int] = mapped_column(Integer)
     items_json: Mapped[str] = mapped_column(Text, default="[]")
     delivery_address_json: Mapped[str] = mapped_column(Text, default="{}")
     demo_payment: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -268,7 +269,7 @@ class Subscription(Base):
     pack_name: Mapped[str] = mapped_column(String(80))
     frequency: Mapped[str] = mapped_column(String(30), default="weekly")  # weekly, bi_weekly, monthly
     status: Mapped[str] = mapped_column(String(30), default="active")  # active, paused, cancelled
-    price_per_delivery_inr: Mapped[int] = mapped_column(Integer)
+    price_per_delivery_paise: Mapped[int] = mapped_column(Integer)
     next_delivery_date: Mapped[datetime] = mapped_column(DateTime)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
@@ -609,7 +610,9 @@ class FoodCreatePayload(BaseModel):
     category: str
     nutrition_tags: List[str] = []
     description: str
-    price_inr: int = Field(ge=0)
+    price_paise: Optional[int] = Field(default=None, ge=0)
+    price_inr: Optional[int] = Field(default=None, ge=0)
+    gst_rate_percent: Optional[float] = None
     unit: str = "500g"
     serving_size: str = "100g"
     stock_qty: int = Field(ge=0, default=50)
@@ -634,7 +637,8 @@ class FoodOut(BaseModel):
     category: str
     nutrition_tags: str
     description: str
-    price_inr: int
+    price_paise: int
+    gst_rate_percent: Optional[float] = None
     unit: str
     serving_size: str
     stock_qty: int
@@ -673,7 +677,7 @@ class CalinPackTierOut(BaseModel):
     id: str
     tier: str
     name: str
-    base_price_inr: int
+    base_price_paise: int
     description: str
     target_audience: str
     max_substitutions: int
@@ -763,7 +767,7 @@ def seed_initial_data() -> None:
                     category="Legumes & Pulses",
                     nutrition_tags=json.dumps(["protein_rich", "iron_rich", "fiber_rich", "mineral_sources"]),
                     description="Protein and iron dense sprouted garbanzo beans with elevated bioavailability.",
-                    price_inr=199,
+                    price_paise=19900,
                     unit="500g pack",
                     serving_size="100g",
                     stock_qty=85,
@@ -785,7 +789,7 @@ def seed_initial_data() -> None:
                     category="Leafy Greens",
                     nutrition_tags=json.dumps(["vitamin_sources", "iron_rich", "mineral_sources", "fiber_rich"]),
                     description="Farm-fresh hydroponic baby spinach packed with Folate, Vitamin K, and Vitamin C.",
-                    price_inr=129,
+                    price_paise=12900,
                     unit="250g bunch",
                     serving_size="100g",
                     stock_qty=60,
@@ -807,7 +811,7 @@ def seed_initial_data() -> None:
                     category="Tubers & Roots",
                     nutrition_tags=json.dumps(["carb_rich", "vitamin_sources", "fiber_rich"]),
                     description="Complex slow-burning carbohydrates rich in Beta-Carotene (Vitamin A) and potassium.",
-                    price_inr=149,
+                    price_paise=14900,
                     unit="1kg box",
                     serving_size="100g",
                     stock_qty=90,
@@ -829,7 +833,7 @@ def seed_initial_data() -> None:
                     category="Dairy & Probiotics",
                     nutrition_tags=json.dumps(["protein_rich", "calcium_rich", "fat_sources"]),
                     description="Strained live-culture yoghurt with triple the protein and active gut microbiome cultures.",
-                    price_inr=249,
+                    price_paise=24900,
                     unit="400g tub",
                     serving_size="100g",
                     stock_qty=40,
@@ -851,7 +855,7 @@ def seed_initial_data() -> None:
                     category="Grains & Pseudocereals",
                     nutrition_tags=json.dumps(["protein_rich", "carb_rich", "fiber_rich", "mineral_sources"]),
                     description="A complete plant protein containing all 9 essential amino acids and low glycemic impact.",
-                    price_inr=349,
+                    price_paise=34900,
                     unit="500g pouch",
                     serving_size="100g cooked",
                     stock_qty=75,
@@ -873,7 +877,7 @@ def seed_initial_data() -> None:
                     category="Berries & Fruits",
                     nutrition_tags=json.dumps(["vitamin_sources", "fiber_rich"]),
                     description="High-anthocyanin antioxidant berries that protect cells and promote cognitive health.",
-                    price_inr=399,
+                    price_paise=39900,
                     unit="250g punnet",
                     serving_size="100g",
                     stock_qty=35,
@@ -895,7 +899,7 @@ def seed_initial_data() -> None:
                     category="Nuts & Seeds",
                     nutrition_tags=json.dumps(["fat_sources", "protein_rich", "vitamin_sources", "mineral_sources"]),
                     description="Heart-healthy monounsaturated fats, Vitamin E, and magnesium for sustained energy.",
-                    price_inr=499,
+                    price_paise=49900,
                     unit="500g pouch",
                     serving_size="30g",
                     stock_qty=65,
@@ -917,7 +921,7 @@ def seed_initial_data() -> None:
                     category="Nuts & Seeds",
                     nutrition_tags=json.dumps(["fiber_rich", "fat_sources", "mineral_sources"]),
                     description="Concentrated Omega-3 ALA fatty acids and hydrophilic soluble dietary fiber.",
-                    price_inr=229,
+                    price_paise=22900,
                     unit="250g jar",
                     serving_size="25g",
                     stock_qty=55,
@@ -939,7 +943,7 @@ def seed_initial_data() -> None:
                     category="Legumes & Pulses",
                     nutrition_tags=json.dumps(["protein_rich", "fiber_rich", "vitamin_sources"]),
                     description="Easily digestible sprouted green gram beans packed with enzymes, B vitamins, and potassium.",
-                    price_inr=159,
+                    price_paise=15900,
                     unit="500g pack",
                     serving_size="100g",
                     stock_qty=70,
@@ -961,7 +965,7 @@ def seed_initial_data() -> None:
                     category="Healthy Oils & Fats",
                     nutrition_tags=json.dumps(["fat_sources"]),
                     description="Traditional kachi ghani unrefined oil rich in MUFA, PUFA, and balanced alpha-linolenic acid.",
-                    price_inr=279,
+                    price_paise=27900,
                     unit="1 Litre bottle",
                     serving_size="15ml",
                     stock_qty=45,
@@ -983,7 +987,7 @@ def seed_initial_data() -> None:
                     category="Grains & Pseudocereals",
                     nutrition_tags=json.dumps(["carb_rich", "fiber_rich", "mineral_sources"]),
                     description="Wholesome jumbo rolled oats containing cholesterol-lowering beta-glucan soluble fiber.",
-                    price_inr=199,
+                    price_paise=19900,
                     unit="1kg bag",
                     serving_size="50g",
                     stock_qty=80,
@@ -1005,7 +1009,7 @@ def seed_initial_data() -> None:
                     category="Cruciferous & Greens",
                     nutrition_tags=json.dumps(["vitamin_sources", "fiber_rich", "mineral_sources"]),
                     description="Cruciferous super-vegetable with sulforaphane, Vitamin C, and calcium.",
-                    price_inr=169,
+                    price_paise=16900,
                     unit="400g head",
                     serving_size="100g",
                     stock_qty=50,
@@ -1031,7 +1035,7 @@ def seed_initial_data() -> None:
                 CalinPackTier(
                     tier="basic",
                     name="Calin Basic Pack",
-                    base_price_inr=699,
+                    base_price_paise=69900,
                     description="A foundational starter bundle pairing staple legumes, grains, and leafy greens for daily baseline nutrition.",
                     target_audience="College students, young adults, and beginners wanting clean staple nutrition without hassle.",
                     max_substitutions=2,
@@ -1049,7 +1053,7 @@ def seed_initial_data() -> None:
                 CalinPackTier(
                     tier="minimal_plus",
                     name="Calin Minimal Plus Pack",
-                    base_price_inr=1099,
+                    base_price_paise=109900,
                     description="Our most popular balanced bundle with expanded variety, probiotic gut support, and diverse antioxidants.",
                     target_audience="Busy working professionals and active adults needing sustained daily vitality.",
                     max_substitutions=3,
@@ -1071,7 +1075,7 @@ def seed_initial_data() -> None:
                 CalinPackTier(
                     tier="premium",
                     name="Calin Premium Pack",
-                    base_price_inr=1699,
+                    base_price_paise=169900,
                     description="Maximum variety, high micronutrient density, and artisanal cold-pressed ingredients for deep nourishment.",
                     target_audience="Fitness enthusiasts, gymgoers, and holistic wellness seekers.",
                     max_substitutions=5,
@@ -1463,15 +1467,15 @@ def list_foods(
         query = query.where(Food.category == category)
 
     if min_price is not None:
-        query = query.where(Food.price_inr >= min_price)
+        query = query.where(Food.price_paise >= min_price)
     if max_price is not None:
-        query = query.where(Food.price_inr <= max_price)
+        query = query.where(Food.price_paise <= max_price)
 
     # Sorting
     if sort_by == "price_asc":
-        query = query.order_by(Food.price_inr.asc())
+        query = query.order_by(Food.price_paise.asc())
     elif sort_by == "price_desc":
-        query = query.order_by(Food.price_inr.desc())
+        query = query.order_by(Food.price_paise.desc())
     elif sort_by == "protein":
         query = query.order_by(Food.protein_g.desc())
     elif sort_by == "calories":
@@ -1571,7 +1575,7 @@ def calculate_combination(
         total_carbs += food.carbs_g * qty
         total_fat += food.fat_g * qty
         total_fibre += food.fibre_g * qty
-        total_price += int(food.price_inr * qty)
+        total_price += int(food.price_paise * qty)
 
         tags = json.loads(food.nutrition_tags or "[]")
         for t in tags:
@@ -1583,7 +1587,7 @@ def calculate_combination(
             "quantity": qty,
             "calories": round(food.calories * qty, 1),
             "protein_g": round(food.protein_g * qty, 1),
-            "price_inr": int(food.price_inr * qty),
+            "price_paise": int(food.price_paise * qty),
         })
 
     return {
@@ -1593,7 +1597,7 @@ def calculate_combination(
         "total_carbs_g": round(total_carbs, 1),
         "total_fat_g": round(total_fat, 1),
         "total_fibre_g": round(total_fibre, 1),
-        "total_price_inr": total_price,
+        "total_price_paise": total_price,
         "contributing_nutrients": sorted(list(contributing_nutrients)),
         "disclaimer": "Calculated from database whole-food nutritional reference sheets. Cooking and prep methods can influence final values.",
     }
@@ -1636,16 +1640,16 @@ def customize_pack(
             total_calories += food.calories
             total_protein += food.protein_g
             total_fibre += food.fibre_g
-            calculated_price += food.price_inr
+            calculated_price += food.price_paise
 
     # Bundle discount formula: bundled pack price is structured ~20% more value than standalone
-    bundle_price = max(tier_record.base_price_inr, round(calculated_price * 0.85))
+    bundle_price = max(tier_record.base_price_paise, (calculated_price * 85) // 100)
 
     return {
         "tier": tier_record.tier,
         "name": tier_record.name,
-        "customized_price_inr": bundle_price,
-        "base_price_inr": tier_record.base_price_inr,
+        "customized_price_paise": bundle_price,
+        "base_price_paise": tier_record.base_price_paise,
         "item_count": len(selected_foods),
         "selected_foods": [
             {
@@ -1655,7 +1659,7 @@ def customize_pack(
                 "unit": f.unit,
                 "calories": f.calories,
                 "protein_g": f.protein_g,
-                "price_inr": f.price_inr,
+                "price_paise": f.price_paise,
             }
             for f in selected_foods
         ],
@@ -1682,7 +1686,7 @@ def get_cart(
     for it in items:
         if it.item_type == "pack":
             customization = json.loads(it.customization_json or "{}")
-            price = it.unit_price_inr
+            price = it.unit_price_paise
             item_total = price * it.quantity
             subtotal += item_total
             cart_list.append({
@@ -1690,16 +1694,16 @@ def get_cart(
                 "item_type": "pack",
                 "pack_tier": it.pack_tier,
                 "name": it.pack_name or "Calin Pack",
-                "unit_price_inr": price,
+                "unit_price_paise": price,
                 "quantity": it.quantity,
-                "total_inr": item_total,
+                "total_paise": item_total,
                 "customization": customization,
             })
         else:
             food = session.get(Food, it.food_id)
             if not food:
                 continue
-            item_total = food.price_inr * it.quantity
+            item_total = food.price_paise * it.quantity
             subtotal += item_total
             cart_list.append({
                 "id": it.id,
@@ -1708,20 +1712,20 @@ def get_cart(
                 "name": food.name,
                 "category": food.category,
                 "unit": food.unit,
-                "unit_price_inr": food.price_inr,
+                "unit_price_paise": food.price_paise,
                 "quantity": it.quantity,
-                "total_inr": item_total,
+                "total_paise": item_total,
                 "stock_available": food.stock_qty >= it.quantity,
             })
 
-    delivery_fee = 0 if subtotal > 800 or subtotal == 0 else 49
+    delivery_fee = 0 if subtotal >= 80000 or subtotal == 0 else 4900
     total = subtotal + delivery_fee
 
     return {
         "items": cart_list,
-        "subtotal_inr": subtotal,
-        "delivery_fee_inr": delivery_fee,
-        "total_inr": total,
+        "subtotal_paise": subtotal,
+        "delivery_fee_paise": delivery_fee,
+        "total_paise": total,
     }
 
 
@@ -1740,7 +1744,7 @@ def add_to_cart(
             raise HTTPException(status_code=404, detail="Pack tier not found")
 
         # Determine price based on customization
-        unit_price = tier_record.base_price_inr
+        unit_price = tier_record.base_price_paise
         cust_json = json.dumps(payload.customization or {})
 
         item = CartItem(
@@ -1749,7 +1753,7 @@ def add_to_cart(
             pack_tier=payload.pack_tier,
             pack_name=tier_record.name,
             customization_json=cust_json,
-            unit_price_inr=unit_price,
+            unit_price_paise=unit_price,
             quantity=payload.quantity,
         )
         session.add(item)
@@ -1780,7 +1784,7 @@ def add_to_cart(
                     user_id=user.id,
                     item_type="food",
                     food_id=food.id,
-                    unit_price_inr=food.price_inr,
+                    unit_price_paise=food.price_paise,
                     quantity=payload.quantity,
                 )
             )
@@ -1830,7 +1834,7 @@ def merge_cart(
             tier_record = session.scalar(select(CalinPackTier).where(CalinPackTier.tier == it.pack_tier))
             if not tier_record:
                 continue
-            server_unit_price = tier_record.base_price_inr
+            server_unit_price = tier_record.base_price_paise
             existing_pack = session.scalar(
                 select(CartItem).where(
                     CartItem.user_id == user.id,
@@ -1848,7 +1852,7 @@ def merge_cart(
                         pack_tier=it.pack_tier,
                         pack_name=tier_record.name,
                         customization_json=json.dumps(it.customization or {}),
-                        unit_price_inr=server_unit_price,
+                        unit_price_paise=server_unit_price,
                         quantity=it.quantity,
                     )
                 )
@@ -1872,14 +1876,14 @@ def merge_cart(
             if merged_qty > 0:
                 if existing_item:
                     existing_item.quantity = merged_qty
-                    existing_item.unit_price_inr = food.price_inr  # Authoritative server price
+                    existing_item.unit_price_paise = food.price_paise  # Authoritative server price
                 else:
                     session.add(
                         CartItem(
                             user_id=user.id,
                             item_type="food",
                             food_id=food.id,
-                            unit_price_inr=food.price_inr,  # Authoritative server price
+                            unit_price_paise=food.price_paise,  # Authoritative server price
                             quantity=merged_qty,
                         )
                     )
@@ -1904,12 +1908,12 @@ def place_order(
     # Server-side validation of prices and inventory
     for it in cart_items:
         if it.item_type == "pack":
-            subtotal += it.unit_price_inr * it.quantity
+            subtotal += it.unit_price_paise * it.quantity
             order_items.append({
                 "item_type": "pack",
                 "pack_tier": it.pack_tier,
                 "name": it.pack_name,
-                "unit_price_inr": it.unit_price_inr,
+                "unit_price_paise": it.unit_price_paise,
                 "quantity": it.quantity,
                 "customization": json.loads(it.customization_json or "{}"),
             })
@@ -1921,17 +1925,17 @@ def place_order(
                 raise HTTPException(status_code=400, detail=f"Stock depleted for {food.name}")
             # Deduct inventory atomically
             food.stock_qty -= it.quantity
-            item_total = food.price_inr * it.quantity
+            item_total = food.price_paise * it.quantity
             subtotal += item_total
             order_items.append({
                 "item_type": "food",
                 "food_id": food.id,
                 "name": food.name,
-                "unit_price_inr": food.price_inr,
+                "unit_price_paise": food.price_paise,
                 "quantity": it.quantity,
             })
 
-    delivery_fee = 0 if subtotal > 800 else 49
+    delivery_fee = 0 if subtotal >= 80000 else 4900
     total = subtotal + delivery_fee
 
     new_order_id = str(uuid4())
@@ -1939,9 +1943,9 @@ def place_order(
         id=new_order_id,
         user_id=user.id,
         status="placed",
-        subtotal_inr=subtotal,
-        delivery_fee_inr=delivery_fee,
-        total_inr=total,
+        subtotal_paise=subtotal,
+        delivery_fee_paise=delivery_fee,
+        total_paise=total,
         items_json=json.dumps(order_items),
         delivery_address_json=json.dumps(payload.address.model_dump()),
         demo_payment=True,
@@ -1961,7 +1965,7 @@ def place_order(
             action="order_placed",
             entity_type="order",
             entity_id=new_order_id,
-            details=json.dumps({"total_inr": total, "items_count": len(order_items)}),
+            details=json.dumps({"total_paise": total, "items_count": len(order_items)}),
         )
     )
 
@@ -1969,9 +1973,9 @@ def place_order(
     return {
         "order_id": order.id,
         "status": order.status,
-        "subtotal_inr": subtotal,
-        "delivery_fee_inr": delivery_fee,
-        "total_inr": total,
+        "subtotal_paise": subtotal,
+        "delivery_fee_paise": delivery_fee,
+        "total_paise": total,
         "items": order_items,
         "delivery_address": payload.address.model_dump(),
         "demo_payment": True,
@@ -1995,9 +1999,9 @@ def get_orders(
         {
             "id": o.id,
             "status": o.status,
-            "subtotal_inr": o.subtotal_inr,
-            "delivery_fee_inr": o.delivery_fee_inr,
-            "total_inr": o.total_inr,
+            "subtotal_paise": o.subtotal_paise,
+            "delivery_fee_paise": o.delivery_fee_paise,
+            "total_paise": o.total_paise,
             "items": json.loads(o.items_json or "[]"),
             "delivery_address": json.loads(o.delivery_address_json or "{}"),
             "demo_payment": o.demo_payment,
@@ -2022,9 +2026,9 @@ def get_order_detail(
         "id": order.id,
         "user_id": order.user_id,
         "status": order.status,
-        "subtotal_inr": order.subtotal_inr,
-        "delivery_fee_inr": order.delivery_fee_inr,
-        "total_inr": order.total_inr,
+        "subtotal_paise": order.subtotal_paise,
+        "delivery_fee_paise": order.delivery_fee_paise,
+        "total_paise": order.total_paise,
         "items": json.loads(order.items_json or "[]"),
         "delivery_address": json.loads(order.delivery_address_json or "{}"),
         "demo_payment": order.demo_payment,
@@ -2047,7 +2051,7 @@ def get_subscriptions(
             "pack_name": s.pack_name,
             "frequency": s.frequency,
             "status": s.status,
-            "price_per_delivery_inr": s.price_per_delivery_inr,
+            "price_per_delivery_paise": s.price_per_delivery_paise,
             "next_delivery_date": s.next_delivery_date.isoformat(),
             "created_at": s.created_at.isoformat(),
         }
@@ -2074,7 +2078,7 @@ def create_subscription(
         pack_name=tier_record.name,
         frequency=payload.frequency,
         status="active",
-        price_per_delivery_inr=tier_record.base_price_inr,
+        price_per_delivery_paise=tier_record.base_price_paise,
         next_delivery_date=next_date,
     )
     session.add(sub)
@@ -2286,7 +2290,7 @@ def admin_stats(
             {
                 "id": o.id,
                 "status": o.status,
-                "total_inr": o.total_inr,
+                "total_paise": o.total_paise,
                 "created_at": o.created_at.isoformat(),
             }
             for o in recent_orders
@@ -2328,13 +2332,15 @@ def admin_create_food(
     user: User = Depends(require_role([Role.admin.value])),
     session: Session = Depends(db),
 ) -> Food:
+    resolved_price = payload.price_paise if payload.price_paise is not None else (payload.price_inr * 100 if payload.price_inr is not None else 0)
     food = Food(
         name=payload.name,
         barcode=payload.barcode,
         category=payload.category,
         nutrition_tags=json.dumps(payload.nutrition_tags),
         description=payload.description,
-        price_inr=payload.price_inr,
+        price_paise=resolved_price,
+        gst_rate_percent=payload.gst_rate_percent,
         unit=payload.unit,
         serving_size=payload.serving_size,
         stock_qty=payload.stock_qty,

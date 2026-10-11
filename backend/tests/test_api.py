@@ -109,7 +109,7 @@ def test_calin_packs_and_customization():
     packs = client.get("/api/packs").json()
     assert len(packs) == 3
     basic_pack = next(p for p in packs if p["tier"] == "basic")
-    assert basic_pack["base_price_inr"] == 699
+    assert basic_pack["base_price_paise"] == 69900
 
     # Customization endpoint
     foods = client.get("/api/foods").json()
@@ -117,7 +117,7 @@ def test_calin_packs_and_customization():
     cust_res = client.post("/api/packs/customize", json={"tier": "basic", "selected_food_ids": food_ids})
     assert cust_res.status_code == 200
     assert cust_res.json()["item_count"] == 4
-    assert cust_res.json()["customized_price_inr"] > 0
+    assert cust_res.json()["customized_price_paise"] > 0
 
 
 def test_cart_and_demo_checkout():
@@ -144,7 +144,7 @@ def test_cart_and_demo_checkout():
     # View Cart
     cart = client.get("/api/cart", headers=headers).json()
     assert len(cart["items"]) == 2
-    assert cart["total_inr"] > 0
+    assert cart["total_paise"] > 0
 
     # Checkout Demo Order
     checkout_payload = {

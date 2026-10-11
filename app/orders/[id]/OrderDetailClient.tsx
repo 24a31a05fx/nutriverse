@@ -12,7 +12,7 @@ import {
   Sparkles,
   AlertCircle,
 } from "lucide-react";
-import { OrderModel, api, money } from "@/lib/api";
+import { OrderModel, api, formatPaise, money } from "@/lib/api";
 
 const statusSteps = [
   { id: "placed", label: "Order Placed" },
@@ -144,11 +144,11 @@ export default function OrderDetailClient({ orderId }: { orderId: string }) {
                 <div>
                   <span className="font-bold text-gray-900 block">{it.name}</span>
                   <span className="text-[10px] text-gray-500">
-                    Qty: {it.quantity} • {money(it.unit_price_inr)} each
+                    Qty: {it.quantity} • {formatPaise(it.unit_price_paise ?? (it.unit_price_inr ? it.unit_price_inr * 100 : 0))} each
                   </span>
                 </div>
                 <span className="font-bold text-gray-900">
-                  {money(it.unit_price_inr * it.quantity)}
+                  {formatPaise((it.unit_price_paise ?? (it.unit_price_inr ? it.unit_price_inr * 100 : 0)) * it.quantity)}
                 </span>
               </div>
             ))}
@@ -157,17 +157,17 @@ export default function OrderDetailClient({ orderId }: { orderId: string }) {
           <div className="pt-3 border-t border-gray-100 space-y-1.5 text-xs text-gray-600">
             <div className="flex justify-between">
               <span>Subtotal:</span>
-              <span className="font-bold text-gray-900">{money(order.subtotal_inr)}</span>
+              <span className="font-bold text-gray-900">{formatPaise(order.subtotal_paise ?? (order.subtotal_inr ? order.subtotal_inr * 100 : 0))}</span>
             </div>
             <div className="flex justify-between">
               <span>Delivery Fee:</span>
               <span className="font-bold text-emerald-700">
-                {order.delivery_fee_inr === 0 ? "FREE" : money(order.delivery_fee_inr)}
+                {(order.delivery_fee_paise === 0 || order.delivery_fee_inr === 0) ? "FREE" : formatPaise(order.delivery_fee_paise ?? (order.delivery_fee_inr ? order.delivery_fee_inr * 100 : 0))}
               </span>
             </div>
             <div className="flex justify-between text-sm pt-2 border-t border-gray-100">
               <span className="font-black text-gray-900">Total Paid:</span>
-              <span className="font-black text-emerald-950">{money(order.total_inr)}</span>
+              <span className="font-black text-emerald-950">{formatPaise(order.total_paise ?? (order.total_inr ? order.total_inr * 100 : 0))}</span>
             </div>
           </div>
         </div>

@@ -12,7 +12,7 @@ import {
   Info,
   ArrowRight,
 } from "lucide-react";
-import { Food, api, money } from "../lib/api";
+import { Food, api, formatPaise, money } from "../lib/api";
 
 interface CombinationsViewProps {
   allFoods: Food[];
@@ -190,7 +190,7 @@ export default function CombinationsView({ allFoods, onAddMultipleToCart }: Comb
                             {food.name}
                           </strong>
                           <span style={{ fontSize: "0.75rem", color: "var(--muted)" }}>
-                            {food.category} · {money(food.price_inr)} / {food.unit}
+                            {food.category} · {formatPaise(food.price_paise ?? (food.price_inr ? food.price_inr * 100 : 0))} / {food.unit}
                           </span>
                         </div>
                       </div>
@@ -213,7 +213,7 @@ export default function CombinationsView({ allFoods, onAddMultipleToCart }: Comb
                         </div>
 
                         <strong style={{ fontSize: "0.95rem", color: "var(--forest-900)", minWidth: "60px", textAlign: "right" }}>
-                          {money(food.price_inr * quantity)}
+                          {formatPaise((food.price_paise ?? (food.price_inr ? food.price_inr * 100 : 0)) * quantity)}
                         </strong>
 
                         <button
@@ -299,7 +299,7 @@ export default function CombinationsView({ allFoods, onAddMultipleToCart }: Comb
                 <div>
                   <span style={{ fontSize: "0.8rem", color: "var(--muted)", display: "block" }}>Combination Total:</span>
                   <strong style={{ fontSize: "1.4rem", color: "var(--forest-950)" }}>
-                    {money(calculationResult?.total_price_inr || 0)}
+                    {formatPaise(calculationResult?.total_price_paise ?? (calculationResult?.total_price_inr ? calculationResult.total_price_inr * 100 : 0))}
                   </strong>
                 </div>
 
@@ -354,7 +354,7 @@ export default function CombinationsView({ allFoods, onAddMultipleToCart }: Comb
                           {f.name}
                         </strong>
                         <span style={{ fontSize: "0.725rem", color: "var(--muted)" }}>
-                          {f.calories} kcal · {f.protein_g}g protein · {money(f.price_inr)}
+                          {f.calories} kcal · {f.protein_g}g protein · {formatPaise(f.price_paise ?? (f.price_inr ? f.price_inr * 100 : 0))}
                         </span>
                       </div>
                     </div>
