@@ -99,8 +99,8 @@ def _run_paise_lifecycle_test_on_url(db_url: str):
             {"now": now}
         )
 
-    # 3. Upgrade to HEAD (runs paise_migration + indexes)
-    command.upgrade(cfg, "head")
+    # 3. Upgrade to revision with paise_migration + indexes (186a6ecddb56)
+    command.upgrade(cfg, "186a6ecddb56")
 
     # 4. Assert all prices/amounts in the database equal old * 100 exactly
     with engine.connect() as conn:

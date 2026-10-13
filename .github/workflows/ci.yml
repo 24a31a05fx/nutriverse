@@ -93,7 +93,16 @@ jobs:
           REDIS_URL: redis://localhost:6379/0
           JWT_SECRET: ci-temporary-secret-string-at-least-32-chars-long
         run: |
-          pytest -v --tb=short
+          pytest -v --tb=short 2>&1 | tee pytest_pg.log
+
+      - name: Dump Pytest log on failure
+        if: failure()
+        run: |
+          echo "### Pytest PostgreSQL Failure Output" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          tail -n 200 pytest_pg.log >> $GITHUB_STEP_SUMMARY 2>&1 || true
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
 
   node:
     name: Node.js 20 (Typecheck, Lint & Build)
@@ -190,6 +199,14 @@ jobs:
           cat backend.log || true
           echo "=== Frontend Log ==="
           cat frontend.log || true
+          echo "### Backend Log (Failure)" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          tail -n 100 backend.log >> $GITHUB_STEP_SUMMARY 2>&1 || true
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "### Frontend Log (Failure)" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          tail -n 100 frontend.log >> $GITHUB_STEP_SUMMARY 2>&1 || true
+          echo '```' >> $GITHUB_STEP_SUMMARY
 
       - name: Upload Playwright report on failure
         if: failure()
