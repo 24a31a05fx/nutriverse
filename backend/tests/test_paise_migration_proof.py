@@ -8,6 +8,7 @@ from alembic import command
 from alembic.config import Config
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.engine import make_url
+from sqlalchemy.pool import NullPool
 
 
 def _run_paise_lifecycle_test_on_url(db_url: str):
@@ -29,7 +30,7 @@ def _run_paise_lifecycle_test_on_url(db_url: str):
     # 1. Upgrade to revision BEFORE paise_migration (a5d2dd3a04f9)
     command.upgrade(cfg, "a5d2dd3a04f9")
 
-    engine = create_engine(db_url)
+    engine = create_engine(db_url, poolclass=NullPool)
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
     # 2. Insert test fixtures into baseline schema using parameterized types
@@ -190,6 +191,8 @@ def _run_paise_lifecycle_test_on_url(db_url: str):
         np_down = conn.execute(text("SELECT budget_inr FROM nutrition_profiles WHERE id = 'np-proof-1'")).fetchone()
         assert np_down[0] == 1500, f"Expected 1500 INR, got {np_down[0]}"
 
+    engine.dispose()
+
 
 def test_paise_migration_proof_sqlite():
     """Verify paise migration lifecycle (upgrade + downgrade invariance) on SQLite."""
@@ -232,7 +235,10 @@ def test_paise_migration_proof_postgres():
     test_db = f"nutriverse_paise_proof_{os.getpid()}"
 
     with admin_conn.cursor() as cur:
-        cur.execute(f"DROP DATABASE IF EXISTS {test_db};")
+        try:
+            cur.execute(f"DROP DATABASE IF EXISTS {test_db} WITH (FORCE);")
+        except Exception:
+            cur.execute(f"DROP DATABASE IF EXISTS {test_db};")
         cur.execute(f"CREATE DATABASE {test_db};")
 
     test_url = admin_url.set(
@@ -245,8 +251,11 @@ def test_paise_migration_proof_postgres():
         try:
             # Terminate any remaining connections to test_db before dropping
             with admin_conn.cursor() as cur:
-                cur.execute(f"SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '{test_db}';")
-                cur.execute(f"DROP DATABASE IF EXISTS {test_db};")
+                cur.execute(f"SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '{test_db}' AND pid <> pg_backend_pid();")
+                try:
+                    cur.execute(f"DROP DATABASE IF EXISTS {test_db} WITH (FORCE);")
+                except Exception:
+                    cur.execute(f"DROP DATABASE IF EXISTS {test_db};")
         except Exception:
             pass
         finally:

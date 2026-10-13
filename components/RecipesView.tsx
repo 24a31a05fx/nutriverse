@@ -14,6 +14,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { Recipe, Food, api, money } from "../lib/api";
+import { DEFAULT_RECIPES } from "../src/data/catalog";
 
 interface RecipesViewProps {
   onAddMultipleToCart: (items: Array<{ food: Food; quantity: number }>) => void;
@@ -21,16 +22,21 @@ interface RecipesViewProps {
 }
 
 export default function RecipesView({ onAddMultipleToCart, allFoods }: RecipesViewProps) {
-  const [recipes, setRecipes] = useState<Recipe[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [recipes, setRecipes] = useState<Recipe[]>(DEFAULT_RECIPES);
+  const [loading, setLoading] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [addedMessage, setAddedMessage] = useState("");
 
   useEffect(() => {
     api<Recipe[]>("/recipes")
-      .then((data) => setRecipes(data))
-      .catch((err) => console.error("Error loading recipes:", err))
-      .finally(() => setLoading(false));
+      .then((data) => {
+        if (Array.isArray(data) && data.length > 0) {
+          setRecipes(data);
+        }
+      })
+      .catch((err) => {
+        console.warn("RecipesView: API unavailable, using offline recipes:", err);
+      });
   }, []);
 
   const handleAddAllIngredients = (recipe: Recipe) => {

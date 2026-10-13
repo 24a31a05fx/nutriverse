@@ -11,6 +11,7 @@ import {
   CartResponse,
   logoutUser,
 } from "@/lib/api";
+import { DEFAULT_CATALOG_FOODS, DEFAULT_RECIPES } from "@/src/data/catalog";
 
 interface GuestCartItem {
   id: string;
@@ -144,8 +145,8 @@ export const NutriverseProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [sessionReady, setSessionReady] = useState(false);
   const [profile, setProfile] = useState<NutritionProfile | null>(null);
   const [cart, setCart] = useState<CartResponse | null>(null);
-  const [allFoods, setAllFoods] = useState<Food[]>([]);
-  const [allRecipes, setAllRecipes] = useState<Recipe[]>([]);
+  const [allFoods, setAllFoods] = useState<Food[]>(DEFAULT_CATALOG_FOODS);
+  const [allRecipes, setAllRecipes] = useState<Recipe[]>(DEFAULT_RECIPES);
 
   // Modals & Drawers
   const [selectedFood, setSelectedFood] = useState<Food | null>(null);
@@ -161,21 +162,19 @@ export const NutriverseProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         api<Food[]>("/foods"),
         api<Recipe[]>("/recipes"),
       ]);
-      setAllFoods(foodsData);
-      setAllRecipes(recipesData);
-    } catch (err) {
-      console.error("Error loading foods catalog:", err);
-      // Automatic retry after 600ms if backend or proxy was reconnecting
-      setTimeout(async () => {
-        try {
-          const [foodsData, recipesData] = await Promise.all([
-            api<Food[]>("/foods"),
-            api<Recipe[]>("/recipes"),
-          ]);
-          setAllFoods(foodsData);
-          setAllRecipes(recipesData);
-        } catch {}
-      }, 600);
+      if (Array.isArray(foodsData) && foodsData.length > 0) {
+        setAllFoods(foodsData);
+      } else {
+        setAllFoods(DEFAULT_CATALOG_FOODS);
+      }
+      if (Array.isArray(recipesData) && recipesData.length > 0) {
+        setAllRecipes(recipesData);
+      } else {
+        setAllRecipes(DEFAULT_RECIPES);
+      }
+    } catch {
+      setAllFoods((prev) => (prev.length > 0 ? prev : DEFAULT_CATALOG_FOODS));
+      setAllRecipes((prev) => (prev.length > 0 ? prev : DEFAULT_RECIPES));
     }
   }, []);
 

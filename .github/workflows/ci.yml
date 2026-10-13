@@ -35,7 +35,7 @@ jobs:
           DATABASE_URL: sqlite:///./ci_test.db
           JWT_SECRET: ci-temporary-secret-string-at-least-32-chars-long
         run: |
-          pytest -q
+          pytest -v --tb=short
 
   python-postgres:
     name: Python 3.12 (PostgreSQL)
@@ -93,7 +93,7 @@ jobs:
           REDIS_URL: redis://localhost:6379/0
           JWT_SECRET: ci-temporary-secret-string-at-least-32-chars-long
         run: |
-          pytest -q
+          pytest -v --tb=short
 
   node:
     name: Node.js 20 (Typecheck, Lint & Build)
@@ -175,7 +175,7 @@ jobs:
           curl --fail http://127.0.0.1:8000/health
 
           for attempt in $(seq 1 60); do
-            if curl --fail --silent http://127.0.0.1:3000 >/dev/null; then
+            if curl --fail --silent http://127.0.0.1:3000 >/dev/null && curl --fail --silent http://127.0.0.1:3000/api/foods >/dev/null; then
               break
             fi
             sleep 2

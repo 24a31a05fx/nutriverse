@@ -1899,11 +1899,37 @@ def seed_initial_data() -> None:
                     emoji="🫒",
                     approval_status="pending",
                 ),
+                Food(
+                    id="f-frac-1",
+                    name="Fractional Test Grain",
+                    barcode="8901111999999",
+                    category="Grains & Pseudocereals",
+                    nutrition_tags=json.dumps(["carb_rich", "fiber_rich"]),
+                    description="Fractional test grain for accurate paise currency formatting.",
+                    price_paise=3350,
+                    unit="100g",
+                    serving_size="50g",
+                    stock_qty=50,
+                    calories=100.0,
+                    protein_g=4.0,
+                    carbs_g=20.0,
+                    fat_g=1.0,
+                    fibre_g=2.0,
+                    vitamins_json=json.dumps({}),
+                    ingredients="100% Whole Test Grain",
+                    storage_info="Store in a cool dry place.",
+                    prep_methods=json.dumps(["Boiled"]),
+                    dietary_tags=json.dumps(["Vegan", "Gluten-Free"]),
+                    emoji="🌾",
+                    approval_status="approved",
+                    active=True,
+                ),
             ]
+            existing_ids = set(session.scalars(select(Food.id)).all())
             existing_barcodes = set(session.scalars(select(Food.barcode)).all())
             existing_names = set(session.scalars(select(Food.name)).all())
             for f in catalog_foods:
-                if (f.barcode and f.barcode in existing_barcodes) or f.name in existing_names:
+                if (f.id and f.id in existing_ids) or (f.barcode and f.barcode in existing_barcodes) or f.name in existing_names:
                     continue
                 session.add(f)
             session.commit()
@@ -2052,7 +2078,7 @@ def seed_initial_data() -> None:
                 from app.services.ifct_ingestion import ingest_ifct_expansion
             ingest_ifct_expansion(session, dry_run=False, strict_mode=True)
         except Exception:
-            pass
+            session.rollback()
 
 
 @asynccontextmanager

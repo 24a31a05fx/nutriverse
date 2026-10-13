@@ -20,6 +20,7 @@ import {
   X,
 } from "lucide-react";
 import { CalinPackTier, Food, api, formatPaise, money } from "../lib/api";
+import { DEFAULT_CALIN_PACK_TIERS, DEFAULT_CATALOG_FOODS } from "@/src/data/catalog";
 
 interface CalinPacksViewProps {
   onAddPackToCart: (tier: string, packName: string, customization: any) => void;
@@ -34,13 +35,13 @@ export default function CalinPacksView({
   onOpenAuth,
   onRequestNutritionistReviewSuccess,
 }: CalinPacksViewProps) {
-  const [tiers, setTiers] = useState<CalinPackTier[]>([]);
-  const [allFoods, setAllFoods] = useState<Food[]>([]);
+  const [tiers, setTiers] = useState<CalinPackTier[]>(DEFAULT_CALIN_PACK_TIERS);
+  const [allFoods, setAllFoods] = useState<Food[]>(DEFAULT_CATALOG_FOODS);
   const [selectedTierId, setSelectedTierId] = useState<string>("minimal_plus");
   const [customizing, setCustomizing] = useState(false);
   const [selectedFoodIds, setSelectedFoodIds] = useState<string[]>([]);
   const [customizedData, setCustomizedData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   // Modals for Subscription and Nutritionist Review
   const [subModalOpen, setSubModalOpen] = useState(false);
@@ -60,20 +61,32 @@ export default function CalinPacksView({
           api<CalinPackTier[]>("/packs"),
           api<Food[]>("/foods"),
         ]);
-        setTiers(tiersData);
-        setAllFoods(foodsData);
+        const finalTiers = Array.isArray(tiersData) && tiersData.length > 0 ? tiersData : DEFAULT_CALIN_PACK_TIERS;
+        const finalFoods = Array.isArray(foodsData) && foodsData.length > 0 ? foodsData : DEFAULT_CATALOG_FOODS;
+
+        setTiers(finalTiers);
+        setAllFoods(finalFoods);
 
         // Pre-select foods for active tier
-        const active = tiersData.find((t) => t.tier === "minimal_plus") || tiersData[0];
+        const active = finalTiers.find((t) => t.tier === "minimal_plus") || finalTiers[0];
         if (active) {
           const defaultItems: Array<{ food_name: string }> = JSON.parse(active.items_json || "[]");
-          const matchedIds = foodsData
+          const matchedIds = finalFoods
             .filter((f) => defaultItems.some((di) => di.food_name.toLowerCase() === f.name.toLowerCase()))
             .map((f) => f.id);
           setSelectedFoodIds(matchedIds);
         }
-      } catch (err) {
-        console.error("Error loading Calin pack tiers:", err);
+      } catch {
+        setTiers(DEFAULT_CALIN_PACK_TIERS);
+        setAllFoods(DEFAULT_CATALOG_FOODS);
+        const active = DEFAULT_CALIN_PACK_TIERS.find((t) => t.tier === "minimal_plus") || DEFAULT_CALIN_PACK_TIERS[0];
+        if (active) {
+          const defaultItems: Array<{ food_name: string }> = JSON.parse(active.items_json || "[]");
+          const matchedIds = DEFAULT_CATALOG_FOODS
+            .filter((f) => defaultItems.some((di) => di.food_name.toLowerCase() === f.name.toLowerCase()))
+            .map((f) => f.id);
+          setSelectedFoodIds(matchedIds);
+        }
       } finally {
         setLoading(false);
       }

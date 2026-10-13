@@ -14,6 +14,7 @@ import {
   Info,
 } from "lucide-react";
 import { Food, api, formatPaise, money } from "../lib/api";
+import { DEFAULT_CATALOG_FOODS } from "@/src/data/catalog";
 import FoodDetailModal from "./FoodDetailModal";
 
 interface FoodExplorerViewProps {
@@ -29,8 +30,8 @@ export default function FoodExplorerView({
   initialNutrient,
   initialQuery,
 }: FoodExplorerViewProps) {
-  const [foods, setFoods] = useState<Food[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [foods, setFoods] = useState<Food[]>(DEFAULT_CATALOG_FOODS);
+  const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState(initialQuery || "");
   const [selectedNutrientTag, setSelectedNutrientTag] = useState<string>("all");
   const [selectedConventionalCategory, setSelectedConventionalCategory] = useState<string>("all");
@@ -48,6 +49,56 @@ export default function FoodExplorerView({
     { id: "mineral_sources", label: "✨ Minerals" },
   ];
 
+  const filterFallbackFoods = () => {
+    let list = [...DEFAULT_CATALOG_FOODS];
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      list = list.filter(
+        (f) =>
+          f.name.toLowerCase().includes(q) ||
+          f.description.toLowerCase().includes(q) ||
+          f.ingredients.toLowerCase().includes(q)
+      );
+    }
+    if (selectedNutrientTag !== "all") {
+      list = list.filter((f) => {
+        try {
+          const tags: string[] = JSON.parse(f.nutrition_tags || "[]");
+          return tags.includes(selectedNutrientTag);
+        } catch {
+          return false;
+        }
+      });
+    }
+    if (selectedConventionalCategory !== "all") {
+      const cat = selectedConventionalCategory.toLowerCase();
+      list = list.filter((f) => {
+        const fc = f.category.toLowerCase();
+        if (cat === "dal and pulses" || cat === "legumes & pulses") {
+          return fc.includes("dal") || fc.includes("pulse") || fc.includes("legume");
+        }
+        if (cat === "fresh produce" || cat === "vegetables") {
+          return fc.includes("green") || fc.includes("tuber") || fc.includes("produce") || fc.includes("cruciferous");
+        }
+        if (cat === "fruits" || cat === "berries & fruits") {
+          return fc.includes("fruit") || fc.includes("berr");
+        }
+        if (cat === "grains & pseudocereals" || cat === "rice and grains") {
+          return fc.includes("grain") || fc.includes("rice") || fc.includes("cereal");
+        }
+        return fc === cat || fc.includes(cat);
+      });
+    }
+    list.sort((a, b) => {
+      if (sortBy === "price_asc") return a.price_paise - b.price_paise;
+      if (sortBy === "price_desc") return b.price_paise - a.price_paise;
+      if (sortBy === "protein_desc") return b.protein_g - a.protein_g;
+      if (sortBy === "calories_asc") return a.calories - b.calories;
+      return a.name.localeCompare(b.name);
+    });
+    return list;
+  };
+
   // Fetch foods with active filters
   const loadFoods = async () => {
     setLoading(true);
@@ -58,19 +109,13 @@ export default function FoodExplorerView({
       if (selectedConventionalCategory !== "all") queryUrl += `&category=${encodeURIComponent(selectedConventionalCategory)}`;
 
       const data = await api<Food[]>(queryUrl);
-      setFoods(data);
-    } catch (err) {
-      console.error("Error loading food explorer catalog:", err);
-      setTimeout(async () => {
-        try {
-          let queryUrl = `/foods?sort_by=${sortBy}`;
-          if (search.trim()) queryUrl += `&q=${encodeURIComponent(search.trim())}`;
-          if (selectedNutrientTag !== "all") queryUrl += `&nutrition_tag=${selectedNutrientTag}`;
-          if (selectedConventionalCategory !== "all") queryUrl += `&category=${encodeURIComponent(selectedConventionalCategory)}`;
-          const retryData = await api<Food[]>(queryUrl);
-          if (retryData && retryData.length > 0) setFoods(retryData);
-        } catch {}
-      }, 500);
+      if (Array.isArray(data) && data.length > 0) {
+        setFoods(data);
+      } else {
+        setFoods(filterFallbackFoods());
+      }
+    } catch {
+      setFoods(filterFallbackFoods());
     } finally {
       setLoading(false);
     }

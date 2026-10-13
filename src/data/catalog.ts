@@ -4,6 +4,8 @@
  * verified nutrient benchmarks (ICMR-NIN RDA 2020 / IFCT 2017), pack sizes, MRP, and discount calculations.
  */
 
+import type { Food, CalinPackTier, Recipe } from "@/lib/api";
+
 export interface ProductProvenance {
   source: string;
   author: string;
@@ -1160,6 +1162,38 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
       status: "pending_fallback",
     },
   },
+  {
+    id: "f-frac-1",
+    name: "Fractional Test Grain",
+    category: "Grains & Pseudocereals",
+    imageUrl: "https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=600&q=80",
+    pricePaise: 3350,
+    mrpPaise: 4500,
+    unit: "100g",
+    unitOptions: [{ unit: "100g", pricePaise: 3350, mrpPaise: 4500 }],
+    servingSize: "50g",
+    calories: 100,
+    proteinG: 4.0,
+    carbsG: 20.0,
+    fatG: 1.0,
+    fibreG: 2.0,
+    healthBenefit: "Slow-Release Carbohydrates & Dietary Fiber",
+    nutritionTags: ["carb_rich", "fiber_rich"],
+    dietaryTags: ["Vegetarian", "Vegan", "Gluten-Free"],
+    deliveryEstimateMins: 15,
+    replacementPolicy: "48 hours only replacement",
+    sourceBasis: "IFCT 2017 Verified",
+    description: "Bioavailable wholesome grain sample with verified fractional paise pricing.",
+    barcode: "8901111999999",
+    stockQty: 50,
+    provenance: {
+      source: "ICMR-NIN IFCT 2017",
+      author: "Nutriverse Whole Foods Lab",
+      license: "Scientific Reference",
+      altText: "Fractional test grain whole grains",
+      status: "verified_authentic",
+    },
+  },
 ];
 
 export function getProductByBarcode(barcode: string): CatalogProduct | undefined {
@@ -1169,6 +1203,164 @@ export function getProductByBarcode(barcode: string): CatalogProduct | undefined
 export function getProductById(id: string): CatalogProduct | undefined {
   return CATALOG_PRODUCTS.find((p) => p.id === id || p.barcode === id);
 }
+
+export function catalogProductToFood(p: CatalogProduct): Food {
+  return {
+    id: p.id,
+    name: p.name,
+    barcode: p.barcode,
+    category: p.category,
+    nutrition_tags: JSON.stringify(p.nutritionTags || []),
+    description: p.description,
+    price_paise: p.pricePaise,
+    gst_rate_percent: null,
+    unit: p.unit,
+    serving_size: p.servingSize || "100g",
+    stock_qty: p.stockQty || 50,
+    calories: p.calories,
+    protein_g: p.proteinG,
+    carbs_g: p.carbsG,
+    fat_g: p.fatG,
+    fibre_g: p.fibreG,
+    vitamins_json: "{}",
+    ingredients: p.name,
+    storage_info: "Store in a cool dry place.",
+    prep_methods: JSON.stringify(["Steam", "Boil"]),
+    dietary_tags: JSON.stringify(p.dietaryTags || []),
+    emoji: "🌾",
+    active: true,
+  };
+}
+
+export const DEFAULT_CATALOG_FOODS: Food[] = CATALOG_PRODUCTS.map(catalogProductToFood);
+
+export const DEFAULT_CALIN_PACK_TIERS: CalinPackTier[] = [
+  {
+    id: "tier-basic",
+    tier: "basic",
+    name: "Calin Basic Pack",
+    base_price_paise: 69900,
+    description: "A foundational starter bundle pairing staple legumes, grains, and leafy greens for daily baseline nutrition.",
+    target_audience: "College students, young adults, and beginners wanting clean staple nutrition without hassle.",
+    max_substitutions: 2,
+    items_json: JSON.stringify([
+      { food_name: "Sprouted Chickpeas", qty: "500g", nutrient: "Plant Protein + Iron" },
+      { food_name: "Tender Baby Spinach", qty: "250g", nutrient: "Folate + Vitamin K" },
+      { food_name: "Roasted Sweet Potato", qty: "1kg", nutrient: "Slow Energy + Vitamin A" },
+      { food_name: "Organic Rolled Oats", qty: "1kg", nutrient: "Beta-Glucan Fiber" },
+      { food_name: "Organic Black Chia Seeds", qty: "250g", nutrient: "Omega-3 ALA" },
+      { food_name: "Sprouted Green Moong", qty: "500g", nutrient: "Digestive Protein" },
+    ]),
+    active: true,
+  },
+  {
+    id: "tier-minimal-plus",
+    tier: "minimal_plus",
+    name: "Calin Minimal Plus Pack",
+    base_price_paise: 109900,
+    description: "Our most popular balanced bundle with expanded variety, probiotic gut support, and diverse antioxidants.",
+    target_audience: "Busy working professionals and active adults needing sustained daily vitality.",
+    max_substitutions: 3,
+    items_json: JSON.stringify([
+      { food_name: "Sprouted Chickpeas", qty: "500g", nutrient: "Plant Protein + Iron" },
+      { food_name: "Tender Baby Spinach", qty: "250g", nutrient: "Folate + Vitamin K" },
+      { food_name: "Roasted Sweet Potato", qty: "1kg", nutrient: "Complex Carbs" },
+      { food_name: "Probiotic Greek Yoghurt", qty: "400g", nutrient: "Calcium + Gut Health" },
+      { food_name: "Organic White Quinoa", qty: "500g", nutrient: "Complete Amino Acids" },
+      { food_name: "Wild Blueberries", qty: "250g", nutrient: "Antioxidant Anthocyanins" },
+      { food_name: "Raw California Almonds", qty: "500g", nutrient: "Vitamin E + Magnesium" },
+      { food_name: "Organic Black Chia Seeds", qty: "250g", nutrient: "Omega-3 ALA" },
+      { food_name: "Fresh Organic Broccoli", qty: "400g", nutrient: "Sulforaphane + Vitamin C" },
+      { food_name: "Organic Rolled Oats", qty: "1kg", nutrient: "Beta-Glucan Fiber" },
+    ]),
+    active: true,
+  },
+  {
+    id: "tier-premium",
+    tier: "premium",
+    name: "Calin Premium Pack",
+    base_price_paise: 169900,
+    description: "Maximum variety, high micronutrient density, and artisanal cold-pressed ingredients for deep nourishment.",
+    target_audience: "Fitness enthusiasts, gymgoers, and holistic wellness seekers.",
+    max_substitutions: 5,
+    items_json: JSON.stringify([
+      { food_name: "Sprouted Chickpeas", qty: "500g", nutrient: "Plant Protein + Iron" },
+      { food_name: "Tender Baby Spinach", qty: "250g", nutrient: "Folate + Vitamin K" },
+      { food_name: "Roasted Sweet Potato", qty: "1kg", nutrient: "Complex Carbs" },
+      { food_name: "Probiotic Greek Yoghurt", qty: "400g", nutrient: "Calcium + Gut Health" },
+      { food_name: "Organic White Quinoa", qty: "500g", nutrient: "Complete Amino Acids" },
+      { food_name: "Wild Blueberries", qty: "250g", nutrient: "Antioxidants" },
+      { food_name: "Raw California Almonds", qty: "500g", nutrient: "Vitamin E + Magnesium" },
+      { food_name: "Organic Black Chia Seeds", qty: "250g", nutrient: "Omega-3 ALA" },
+      { food_name: "Sprouted Green Moong", qty: "500g", nutrient: "Digestive Protein" },
+      { food_name: "Cold-Pressed Mustard Oil", qty: "1L", nutrient: "Healthy MUFA / PUFA" },
+      { food_name: "Organic Rolled Oats", qty: "1kg", nutrient: "Beta-Glucan Fiber" },
+      { food_name: "Fresh Organic Broccoli", qty: "400g", nutrient: "Sulforaphane + Vitamin C" },
+    ]),
+    active: true,
+  },
+];
+
+export const DEFAULT_RECIPES: Recipe[] = [
+  {
+    id: "rec-1",
+    name: "Golden Sprouted Chickpea & Spinach Bowl",
+    description: "A vibrant high-iron, high-protein bowl pairing sprouted chickpeas with wilted spinach, lemon, and cumin.",
+    instructions: "1. Lightly steam sprouted chickpeas for 6 minutes.\n2. In a skillet, warm 1 tsp cold-pressed oil with cumin seeds.\n3. Add baby spinach at the very end (30 seconds) to preserve heat-sensitive Folate and Vitamin C.\n4. Squeeze fresh lemon juice over chickpeas — Vitamin C boosts non-heme iron absorption by up to 300%!\n5. Serve warm with roasted sweet potato wedges.",
+    prep_method: "Flash Steam & Warm Toss",
+    prep_time_mins: 18,
+    servings: 2,
+    calories: 380,
+    protein_g: 18.5,
+    emoji: "🥗",
+    ingredients_json: JSON.stringify([
+      { name: "Sprouted Chickpeas", qty: "150", unit: "g" },
+      { name: "Tender Baby Spinach", qty: "80", unit: "g" },
+      { name: "Cold-Pressed Mustard Oil", qty: "10", unit: "ml" },
+      { name: "Roasted Sweet Potato", qty: "100", unit: "g" },
+    ]),
+    active: true,
+  },
+  {
+    id: "rec-2",
+    name: "Overnight Berry & Chia Protein Jar",
+    description: "Slow-digesting prebiotic breakfast packed with soluble beta-glucan, omega-3s, and Greek yoghurt.",
+    instructions: "1. In a glass jar, mix rolled oats, chia seeds, and probiotic Greek yoghurt.\n2. Add a splash of water or plant milk and stir well.\n3. Refrigerate overnight (6–8 hours) to activate chia mucilage and soften oat starch.\n4. Top with fresh blueberries and chopped raw almonds before eating.",
+    prep_method: "No-Cook Cold Hydration",
+    prep_time_mins: 10,
+    servings: 1,
+    calories: 340,
+    protein_g: 21.0,
+    emoji: "🫐",
+    ingredients_json: JSON.stringify([
+      { name: "Organic Rolled Oats", qty: "50", unit: "g" },
+      { name: "Probiotic Greek Yoghurt", qty: "150", unit: "g" },
+      { name: "Organic Black Chia Seeds", qty: "15", unit: "g" },
+      { name: "Wild Blueberries", qty: "40", unit: "g" },
+      { name: "Raw California Almonds", qty: "15", unit: "g" },
+    ]),
+    active: true,
+  },
+  {
+    id: "rec-3",
+    name: "Warm Quinoa & Steamed Broccoli Power Lunch",
+    description: "Complete protein profile combined with natural sulforaphane from lightly steamed broccoli florets.",
+    instructions: "1. Rinse white quinoa and simmer in 2x water with a pinch of sea salt for 14 minutes until fluffy.\n2. Steam broccoli florets for exactly 3 to 4 minutes to maximize sulforaphane bioavailability.\n3. Toss together with roasted sweet potato cubes.\n4. Drizzle with cold-pressed oil and roasted almond flakes.",
+    prep_method: "Simmer & Steam",
+    prep_time_mins: 22,
+    servings: 2,
+    calories: 420,
+    protein_g: 16.0,
+    emoji: "🥦",
+    ingredients_json: JSON.stringify([
+      { name: "Organic White Quinoa", qty: "120", unit: "g" },
+      { name: "Fresh Organic Broccoli", qty: "150", unit: "g" },
+      { name: "Roasted Sweet Potato", qty: "100", unit: "g" },
+      { name: "Raw California Almonds", qty: "20", unit: "g" },
+    ]),
+    active: true,
+  },
+];
 
 export const GROCERY_CATEGORIES = [
   "All products",
