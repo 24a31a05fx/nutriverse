@@ -144,7 +144,7 @@ export const ScannerView: React.FC<ScannerViewProps> = ({ onSelectFood, onAddToC
         <span className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-50 text-emerald-800 text-xs font-bold rounded-full mb-3 uppercase tracking-wider">
           <Barcode className="w-3.5 h-3.5" /> Instant Nutrition Scanner & Provenance
         </span>
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Scan Any Food Barcode or EAN Code</h1>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">Scan Any Food Barcode or QR Code</h1>
         <p className="text-gray-600 max-w-2xl mx-auto text-sm">
           Resolve physical package barcodes with exact matching. Local items are verified against ICMR-NIN IFCT laboratory ground truth; external packaged goods are cross-referenced with Open Food Facts under ODbL licensing.
         </p>

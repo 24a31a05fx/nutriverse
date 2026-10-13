@@ -126,8 +126,21 @@ def get_client_ip(request: Request) -> str:
 
 
 redis_storage = settings.redis_url or os.environ.get("REDIS_URL")
-if redis_storage:
-    limiter = Limiter(key_func=get_client_ip, storage_uri=redis_storage)
+if redis_storage and redis_storage.startswith(("redis://", "rediss://")):
+    try:
+        import redis
+        _r = redis.from_url(redis_storage, socket_connect_timeout=0.5)
+        _r.ping()
+        limiter = Limiter(
+            key_func=get_client_ip,
+            storage_uri=redis_storage,
+            swallow_errors=True,
+            in_memory_fallback_enabled=True,
+        )
+    except Exception:
+        limiter = Limiter(key_func=get_client_ip)
+elif redis_storage and redis_storage.startswith("memory://"):
+    limiter = Limiter(key_func=get_client_ip, storage_uri="memory://")
 else:
     limiter = Limiter(key_func=get_client_ip)
 

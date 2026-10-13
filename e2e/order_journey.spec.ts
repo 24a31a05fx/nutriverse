@@ -51,7 +51,7 @@ test.describe("Phase 1b Playwright Suite", () => {
 
     try {
       execSync(
-        `"${PYTHON_BIN}" -c "from sqlalchemy import create_engine; from sqlalchemy.orm import Session; from backend.app.main import Food, settings; engines = [create_engine(settings.database_url), create_engine('${DB_URL}')]; [ (s := Session(eng), (s.delete(s.get(Food, 'f-frac-1')), s.commit()) if s.get(Food, 'f-frac-1') else None, s.add(Food(id='f-frac-1', name='Fractional Test Grain', barcode='8901111999999', category='Grains', description='Test food', price_paise=3350, calories=100.0, protein_g=4.0, carbs_g=20.0, fat_g=1.0, fibre_g=2.0, stock_qty=50, unit='100g', serving_size='50g', vitamins_json='{}', ingredients='Grain', storage_info='Dry', prep_methods='[]', dietary_tags='[]', emoji='🌾', active=True)), s.commit(), s.close()) for eng in engines ]"`,
+        `"${PYTHON_BIN}" -c "from sqlalchemy import create_engine; from sqlalchemy.orm import Session; from backend.app.main import Food; eng = create_engine('${DB_URL}'); s = Session(eng); (s.delete(s.get(Food, 'f-frac-1')), s.commit()) if s.get(Food, 'f-frac-1') else None; s.add(Food(id='f-frac-1', name='Fractional Test Grain', barcode='8901111999999', category='Grains & Pseudocereals', description='Test food', price_paise=3350, calories=100.0, protein_g=4.0, carbs_g=20.0, fat_g=1.0, fibre_g=2.0, stock_qty=50, unit='100g', serving_size='50g', vitamins_json='{}', ingredients='Grain', storage_info='Dry', prep_methods='[]', dietary_tags='[]', emoji='🌾', active=True)); s.commit(); s.close()"`,
         {
           env: {
             ...process.env,

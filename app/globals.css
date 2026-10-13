@@ -1,3 +1,6 @@
+@tailwind components;
+@tailwind utilities;
+
 /* Nutriverse design tokens */
 :root {
   --brand-forest: #245C45;
