@@ -2912,7 +2912,29 @@ def list_foods(
         query = query.where(Food.name.ilike(search) | Food.description.ilike(search) | Food.ingredients.ilike(search))
 
     if category:
-        query = query.where(Food.category == category)
+        cat_lower = category.lower().strip()
+        category_aliases: dict[str, list[str]] = {
+            "dal and pulses": ["Dal and pulses", "Legumes & Pulses", "Plant Proteins"],
+            "legumes & pulses": ["Legumes & Pulses", "Dal and pulses", "Plant Proteins"],
+            "fresh produce": ["Fresh produce", "Vegetables", "Leafy Greens", "Tubers & Roots", "Cruciferous & Greens", "Alliums & Aromatics"],
+            "vegetables": ["Vegetables", "Fresh produce", "Leafy Greens", "Tubers & Roots", "Cruciferous & Greens", "Alliums & Aromatics"],
+            "fruits": ["Fruits", "Berries & Fruits"],
+            "berries & fruits": ["Berries & Fruits", "Fruits"],
+            "rice and grains": ["Rice and grains", "Grains & Pseudocereals", "Grains"],
+            "grains & pseudocereals": ["Grains & Pseudocereals", "Rice and grains", "Grains"],
+            "grains": ["Grains", "Grains & Pseudocereals", "Rice and grains"],
+            "healthy fats": ["Healthy fats", "Healthy Oils & Fats"],
+            "healthy oils & fats": ["Healthy Oils & Fats", "Healthy fats"],
+            "dairy & probiotics": ["Dairy & Probiotics"],
+            "alliums & aromatics": ["Alliums & Aromatics"],
+            "nuts & seeds": ["Nuts & Seeds"],
+            "leafy greens": ["Leafy Greens"],
+            "tubers & roots": ["Tubers & Roots"],
+            "cruciferous & greens": ["Cruciferous & Greens"],
+            "plant proteins": ["Plant Proteins", "Legumes & Pulses", "Dal and pulses"],
+        }
+        matching_cats = category_aliases.get(cat_lower, [category])
+        query = query.where(Food.category.in_(matching_cats))
 
     if min_price is not None:
         query = query.where(Food.price_paise >= min_price)

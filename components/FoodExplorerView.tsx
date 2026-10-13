@@ -84,6 +84,7 @@ export default function FoodExplorerView({
   const conventionalCategories = [
     "all",
     "Legumes & Pulses",
+    "Dal and pulses",
     "Leafy Greens",
     "Tubers & Roots",
     "Dairy & Probiotics",
@@ -92,6 +93,9 @@ export default function FoodExplorerView({
     "Nuts & Seeds",
     "Healthy Oils & Fats",
     "Cruciferous & Greens",
+    "Alliums & Aromatics",
+    "Plant Proteins",
+    "Fresh produce",
   ];
 
   useEffect(() => {

@@ -49,6 +49,7 @@ const CATEGORIES = [
   { id: "rice_grains", label: "Rice and grains", icon: "🌾" },
   { id: "fruits", label: "Fruits", icon: "🍈" },
   { id: "vegetables", label: "Vegetables", icon: "🥔" },
+  { id: "dairy_probiotics", label: "Dairy & Probiotics", icon: "🥛" },
   { id: "protein_rich", label: "Protein-rich foods", icon: "🌱" },
   { id: "vitamins_minerals", label: "Vitamins & minerals", icon: "🫐" },
   { id: "healthy_fats", label: "Healthy fats", icon: "🥑" },
@@ -114,9 +115,12 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({
     if (selectedCategory === "rice_grains") {
       return list.filter((p) => ["Rice and grains"].includes(p.category));
     }
+    if (selectedCategory === "dairy_probiotics") {
+      return list.filter((p) => ["Dairy & Probiotics"].includes(p.category));
+    }
     if (selectedCategory === "protein_rich") {
       return list.filter((p) =>
-        p.proteinG >= 5 || ["Dal and pulses"].includes(p.category) || p.nutritionTags.includes("protein_rich")
+        p.proteinG >= 5 || ["Dal and pulses", "Dairy & Probiotics"].includes(p.category) || p.nutritionTags.includes("protein_rich")
       );
     }
     if (selectedCategory === "healthy_fats") {
@@ -128,7 +132,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({
       );
     }
     if (selectedCategory === "everyday_essentials") {
-      return list.filter((p) => ["Everyday essentials", "Fresh produce", "Dal and pulses", "Rice and grains"].includes(p.category));
+      return list.filter((p) => ["Everyday essentials", "Fresh produce", "Dal and pulses", "Rice and grains", "Dairy & Probiotics"].includes(p.category));
     }
 
     return list;
@@ -143,7 +147,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({
 
   const proteinAndStapleProducts = useMemo(() => {
     return CATALOG_PRODUCTS.filter((p) =>
-      ["Dal and pulses", "Rice and grains", "Healthy fats", "Everyday essentials"].includes(p.category)
+      ["Dal and pulses", "Rice and grains", "Healthy fats", "Everyday essentials", "Dairy & Probiotics"].includes(p.category)
     );
   }, []);
 

@@ -1177,6 +1177,7 @@ export const GROCERY_CATEGORIES = [
   "Rice and grains",
   "Fruits",
   "Vegetables",
+  "Dairy & Probiotics",
   "Protein-rich foods",
   "Vitamins and minerals",
   "Healthy fats",

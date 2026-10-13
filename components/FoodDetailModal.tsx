@@ -282,7 +282,7 @@ export default function FoodDetailModal({
             <div className="space-y-3 pt-2 border-t border-gray-100">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-gray-800 uppercase tracking-wider">
-                  Nutrition Snapshot (Per {food.serving_size})
+                  Nutrition Snapshot (Per {food.serving_size || "100g"})
                 </span>
                 <span className="text-[10px] font-mono text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded font-bold">
                   {catalogEntry.sourceBasis}

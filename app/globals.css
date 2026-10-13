@@ -1822,7 +1822,7 @@ textarea.form-control {
 .nv-card-media {
   position: relative !important;
   width: 100% !important;
-  height: 155px !important;
+  height: 156px !important;
   background-color: #fbf9f5 !important;
   overflow: hidden !important;
 }
@@ -2054,6 +2054,7 @@ textarea.form-control {
    Quick-Commerce Specific Interaction Components (Matching References A & B)
    ========================================================================== */
 .nv-grocery-card {
+  min-width: 0;
   background: #ffffff;
   border: 1px solid var(--border-light);
   border-radius: var(--radius-card);
@@ -2061,11 +2062,20 @@ textarea.form-control {
   display: flex;
   flex-direction: column;
   position: relative;
+  box-shadow: none;
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 .nv-grocery-card:hover {
   border-color: var(--green-400);
   box-shadow: var(--shadow-sm);
+}
+
+.nv-grocery-card img {
+  object-fit: cover;
+}
+
+.nv-grocery-card .nv-card-media > div:last-child > div {
+  border-radius: var(--radius-sm);
 }
 
 .nv-veg-mark {
@@ -2091,7 +2101,7 @@ textarea.form-control {
   font-size: 10px;
   font-weight: 800;
   padding: 2px 6px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   text-transform: uppercase;
   display: inline-block;
 }
@@ -2102,10 +2112,15 @@ textarea.form-control {
   color: var(--forest-800);
   font-weight: 700;
   font-size: 13px;
-  padding: 4px 14px;
-  border-radius: 8px;
+  min-height: 36px;
+  padding: 0.35rem 0.75rem;
+  border-radius: var(--radius-sm);
   cursor: pointer;
+  box-shadow: none;
   transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .nv-quick-add-btn:hover {
   background: var(--green-50);
@@ -2113,14 +2128,18 @@ textarea.form-control {
 }
 
 .nv-qty-stepper {
+  min-height: 36px;
   display: inline-flex;
   align-items: center;
   background: var(--forest-800);
   color: #ffffff;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
+  box-shadow: none;
 }
 .nv-qty-stepper button {
+  min-width: 36px;
+  min-height: 36px;
   padding: 4px 10px;
   color: #ffffff;
   font-weight: 800;
@@ -2128,14 +2147,19 @@ textarea.form-control {
   background: none;
   border: none;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .nv-qty-stepper button:hover {
   background: rgba(0, 0, 0, 0.15);
 }
 .nv-qty-stepper span {
-  padding: 0 6px;
+  min-width: 22px;
+  padding: 0 4px;
   font-weight: 700;
   font-size: 13px;
+  text-align: center;
 }
 
 .nv-bottom-purchase-bar {
@@ -2267,8 +2291,7 @@ textarea:focus-visible {
   box-shadow: var(--shadow-lg);
 }
 
-.btn,
-.nv-quick-add-btn {
+.btn {
   min-height: 40px;
 }
 
@@ -2419,52 +2442,6 @@ textarea:focus-visible {
   box-shadow: none !important;
 }
 
-.nv-grocery-card {
-  min-width: 0 !important;
-  border-radius: var(--radius-card) !important;
-  box-shadow: none !important;
-}
-
-.nv-card-media {
-  position: relative !important;
-  height: 156px !important;
-  background: #F5F6F3 !important;
-  overflow: hidden !important;
-}
-
-.nv-grocery-card img {
-  object-fit: contain !important;
-}
-
-.nv-grocery-card .nv-card-media > div:last-child > div {
-  border-radius: var(--radius-sm) !important;
-}
-
-.nv-grocery-card .nv-quick-add-btn {
-  min-height: 36px;
-  padding: 0.35rem 0.75rem;
-  border-radius: var(--radius-sm);
-  box-shadow: none !important;
-}
-
-.nv-qty-stepper {
-  min-height: 36px;
-  border-radius: var(--radius-sm);
-  box-shadow: none !important;
-}
-
-.nv-qty-stepper button {
-  min-width: 36px;
-  min-height: 36px;
-}
-
-.nv-qty-stepper span {
-  min-width: 22px;
-}
-
-.nv-discount-badge {
-  border-radius: var(--radius-xs);
-}
 
 .nv-floating-cart-pill {
   right: max(16px, env(safe-area-inset-right));

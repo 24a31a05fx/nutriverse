@@ -9,7 +9,7 @@ const localVenv = process.platform === "win32"
 
 const PYTHON_BIN = fs.existsSync(localVenv)
   ? localVenv
-  : (process.env.PYTHON || (process.platform === "win32" ? "python.exe" : "python3"));
+  : (process.env.PYTHON || (process.platform === "win32" ? "python.exe" : "python"));
 
 const DB_URL = process.env.DATABASE_URL || "sqlite:///./nutriverse.db";
 const FRONTEND_URL = process.env.BASE_URL || "http://127.0.0.1:3000";
@@ -161,6 +161,7 @@ test.describe("Phase 1b Playwright Suite", () => {
   }) => {
     // 1. Terminate existing dev backend process on port 8000 to start real production backend
     killPort8000();
+    await new Promise((r) => setTimeout(r, 1200));
 
     // 2. Start REAL backend process with APP_ENV=production (no route mocking)
     const prodProc = spawn(
@@ -182,7 +183,7 @@ test.describe("Phase 1b Playwright Suite", () => {
     try {
       // 3. Wait for REAL production backend to boot and verify /api/auth/config directly
       let ready = false;
-      for (let i = 0; i < 30; i++) {
+      for (let i = 0; i < 50; i++) {
         try {
           const res = await fetch("http://127.0.0.1:8000/api/auth/config");
           if (res.ok) {

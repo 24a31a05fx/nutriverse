@@ -72,6 +72,15 @@ def test_food_catalog_and_filters():
     search_res = client.get("/api/foods?q=Quinoa").json()
     assert any("Quinoa" in f["name"] for f in search_res)
 
+    # Category alias filtering
+    dal_foods = client.get("/api/foods", params={"category": "Dal and pulses"}).json()
+    assert len(dal_foods) > 0
+    assert any("Chickpeas" in f["name"] or "Moong" in f["name"] or "Masoor" in f["name"] for f in dal_foods)
+
+    dairy_foods = client.get("/api/foods", params={"category": "Dairy & Probiotics"}).json()
+    assert len(dairy_foods) > 0
+    assert any("Paneer" in f["name"] or "Curd" in f["name"] or "Yoghurt" in f["name"] for f in dairy_foods)
+
 
 def test_barcode_lookup():
     # Known barcode
