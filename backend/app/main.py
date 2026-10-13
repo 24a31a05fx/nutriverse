@@ -1221,7 +1221,7 @@ def seed_initial_data() -> None:
         if True:
             catalog_foods = [
                 Food(
-                    name="Sprouted Chickpeas",
+                    name="Sprouted Desi Chickpeas",
                     barcode="8901234567890",
                     category="Legumes & Pulses",
                     nutrition_tags=json.dumps(["protein_rich", "iron_rich", "fiber_rich", "mineral_sources"]),

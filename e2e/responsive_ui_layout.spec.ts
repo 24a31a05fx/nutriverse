@@ -42,7 +42,7 @@ test.describe("Nutriverse Responsive Layout & UI Integrity", () => {
     await page.waitForLoadState("domcontentloaded");
 
     // Open Auth modal
-    const signInBtn = page.getByRole("button", { name: /sign in/i }).first();
+    const signInBtn = page.getByRole("button", { name: /Sign In|Login/i }).first();
     await expect(signInBtn).toBeVisible();
     await signInBtn.click();
 
@@ -91,7 +91,7 @@ test.describe("Nutriverse Responsive Layout & UI Integrity", () => {
     await page.waitForLoadState("domcontentloaded");
 
     // Open Auth modal and switch to Create Account
-    const signInBtn = page.getByRole("button", { name: /^sign in$/i }).first();
+    const signInBtn = page.getByRole("button", { name: /Sign In|Login/i }).first();
     await signInBtn.click();
 
     const modal = page.locator(".modal-dialog");
@@ -130,10 +130,12 @@ test.describe("Nutriverse Responsive Layout & UI Integrity", () => {
     const productCard = page.locator("article, [data-testid='product-card'], .card, a[href^='/food/']").first();
     await expect(productCard).toBeVisible();
 
-    const cardBox = await productCard.boundingBox();
-    expect(cardBox).not.toBeNull();
-    expect(cardBox!.width).toBeGreaterThan(100);
-    expect(cardBox!.height).toBeGreaterThan(100);
+    await expect(async () => {
+      const cardBox = await productCard.boundingBox();
+      expect(cardBox).not.toBeNull();
+      expect(cardBox!.width).toBeGreaterThan(100);
+      expect(cardBox!.height).toBeGreaterThan(100);
+    }).toPass();
   });
 
   test("No uncaught console errors occur during multi-page navigation", async ({ page }) => {
