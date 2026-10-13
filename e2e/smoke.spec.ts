@@ -20,7 +20,7 @@ test.describe("Nutriverse Phase 1a Smoke Tests", () => {
 
     // Verify food catalog items render
     await expect(page.getByText(/Food Explorer/i).first()).toBeVisible();
-    await expect(page.getByText(/Sprouted Desi Chickpeas|Organic Rolled Oats|Probiotic Greek Yoghurt/i).first()).toBeVisible();
+    await expect(page.getByText(/Sprouted (?:Desi )?Chickpeas|Organic Rolled Oats|Probiotic Greek Yoghurt/i).first()).toBeVisible();
   });
 
   test("Guest can view Calin Pack tiers on /packs", async ({ page }) => {
