@@ -1648,6 +1648,28 @@ def seed_initial_data() -> None:
                     emoji="🧈",
                 ),
                 Food(
+                    name="Fresh Green Chillies",
+                    barcode="8901234567818",
+                    category="Alliums & Aromatics",
+                    nutrition_tags=json.dumps(["vitamin_sources", "mineral_sources"]),
+                    description="Handpicked sharp native green chillies packed with natural capsaicin and high ascorbic acid.",
+                    price_paise=1800,
+                    unit="100 g",
+                    serving_size="15g",
+                    stock_qty=90,
+                    calories=40,
+                    protein_g=2.0,
+                    carbs_g=9.0,
+                    fat_g=0.2,
+                    fibre_g=1.5,
+                    vitamins_json=json.dumps({"vitamin_c_mg": 143.7, "capsaicin_active": True}),
+                    ingredients="100% Native Indian Green Chillies (Capsicum annuum)",
+                    storage_info="Store refrigerated in a breathable paper pouch.",
+                    prep_methods=json.dumps(["Raw Chopped Tadka", "Slit Fry", "Chutney Paste"]),
+                    dietary_tags=json.dumps(["Vegan", "Gluten-Free", "Low-Calorie"]),
+                    emoji="🌶️",
+                ),
+                Food(
                     name="Whole Finger Millet (Ragi / Ragulu)",
                     barcode="8901234567821",
                     category="Grains & Pseudocereals",
@@ -2021,6 +2043,16 @@ def seed_initial_data() -> None:
             ]
             session.add_all(recipes)
             session.commit()
+
+        # 5. Seed Authenticated IFCT 2017 Dataset Expansion
+        try:
+            try:
+                from backend.app.services.ifct_ingestion import ingest_ifct_expansion
+            except ImportError:
+                from app.services.ifct_ingestion import ingest_ifct_expansion
+            ingest_ifct_expansion(session, dry_run=False, strict_mode=True)
+        except Exception:
+            pass
 
 
 @asynccontextmanager

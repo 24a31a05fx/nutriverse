@@ -642,7 +642,7 @@ export default function TodayClient() {
                             <span className="text-[10px] text-[var(--charcoal-600)] block">
                               {item.mass_g}g • {Math.round(item.calories)} kcal • P: {item.protein_g}g • C: {item.carbs_g}g • F: {item.fat_g}g
                             </span>
-                            <span className="inline-block mt-0.5 text-[9px] px-1.5 py-0.2 rounded bg-white text-[var(--charcoal-600)] border border-[var(--border-light)]">
+                            <span className="inline-block mt-0.5 text-[9px] px-1.5 py-0.5 rounded bg-white text-[var(--charcoal-600)] border border-[var(--border-light)]">
                               {item.source_basis === "verified_ifct_reference" ? "IFCT 2017 Verified" : "Catalog Product"}
                             </span>
                           </div>

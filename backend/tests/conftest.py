@@ -1,10 +1,20 @@
 import os
 import sys
 
-# Ensure test suite runs deterministically on SQLite unless live PostgreSQL is explicitly targeted
-if os.environ.get("LIVE_POSTGRES") != "1":
-    if not os.environ.get("DATABASE_URL") or "postgresql" in os.environ.get("DATABASE_URL", ""):
-        os.environ["DATABASE_URL"] = "sqlite:///./nutriverse.db"
+# Ensure test suite runs deterministically:
+# 1. Respect explicit TEST_DATABASE_URL if provided
+# 2. In CI (GitHub Actions), respect DATABASE_URL (SQLite or PostgreSQL)
+# 3. For local development where PostgreSQL is not running, fall back to SQLite
+is_ci = os.environ.get("CI") == "true" or os.environ.get("GITHUB_ACTIONS") == "true"
+test_db_url = os.environ.get("TEST_DATABASE_URL")
+
+if test_db_url:
+    os.environ["DATABASE_URL"] = test_db_url
+elif not os.environ.get("DATABASE_URL"):
+    os.environ["DATABASE_URL"] = "sqlite:///./nutriverse.db"
+elif "postgresql" in os.environ.get("DATABASE_URL", "") and not is_ci and os.environ.get("LIVE_POSTGRES") != "1":
+    os.environ["DATABASE_URL"] = "sqlite:///./nutriverse.db"
+
 if not os.environ.get("REDIS_URL"):
     os.environ["REDIS_URL"] = "memory://"
 

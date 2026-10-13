@@ -39,8 +39,6 @@ export async function generateStaticParams() {
   }));
 }
 
-export const dynamic = "force-dynamic";
-
 async function getFoodByBarcode(barcode: string): Promise<Food | null> {
   try {
     const res = await fetch(getServerApiUrl(`api/foods/barcode/${encodeURIComponent(barcode)}`), {

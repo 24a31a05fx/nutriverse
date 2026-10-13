@@ -537,7 +537,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     replacementPolicy: "48 hours only replacement",
     sourceBasis: "IFCT 2017 Spices and Condiments",
     description: "Solid, unblemished native garlic heads with high allicin potency when crushed, assisting healthy circulation and microbial defense.",
-    barcode: "8901234567811",
+    barcode: "8901234567812",
     stockQty: 65,
     provenance: {
       source: "Unsplash",
@@ -574,7 +574,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     replacementPolicy: "48 hours only replacement",
     sourceBasis: "ICMR 2020 Bulb Vegetables",
     description: "Crisp, pungent Maharashtrian/Andhra red onions loaded with quercetin antioxidants and prebiotic fructooligosaccharides to feed gut microflora.",
-    barcode: "8901234567812",
+    barcode: "8901234567811",
     stockQty: 150,
     provenance: {
       source: "Unsplash",
@@ -610,7 +610,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     replacementPolicy: "24 hours fresh guarantee",
     sourceBasis: "IFCT 2017 Spices Section",
     description: "Handpicked sharp native green chillies packed with natural capsaicin and extraordinary per-gram concentrations of ascorbic acid.",
-    barcode: "8901234567813",
+    barcode: "8901234567818",
     stockQty: 90,
     provenance: {
       source: "Unsplash",
@@ -646,7 +646,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     replacementPolicy: "24 hours fresh guarantee",
     sourceBasis: "ICMR-NIN 2020 Citrus Fruit Benchmark",
     description: "Fragrant thin-skinned yellow lemons. Essential pairing with lentils and leafy greens to dramatically boost dietary non-heme iron uptake.",
-    barcode: "8901234567814",
+    barcode: "8901234567813",
     stockQty: 110,
     provenance: {
       source: "Unsplash",
@@ -682,7 +682,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     replacementPolicy: "48 hours only replacement",
     sourceBasis: "IFCT 2017 Bioactive Phytochemicals",
     description: "Fibrous native ginger rhizomes with pungent gingerol compounds that stimulate digestive enzymes and reduce systemic inflammatory markers.",
-    barcode: "8901234567815",
+    barcode: "8901234567814",
     stockQty: 80,
     provenance: {
       source: "Unsplash",
@@ -718,7 +718,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     replacementPolicy: "24 hours fresh guarantee",
     sourceBasis: "ICMR 2020 Summer Fruit Analysis",
     description: "Sun-sweetened netted cantaloupe melon packed with biological water, natural potassium, and carotenoids for cellular hydration.",
-    barcode: "8901234567816",
+    barcode: "8901234567815",
     stockQty: 45,
     provenance: {
       source: "Unsplash",
@@ -754,7 +754,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     replacementPolicy: "24 hours fresh guarantee",
     sourceBasis: "IFCT 2017 Table G.3",
     description: "Traditional soft cottage cheese made from pure pasteurized cow milk. High in slow-digesting casein protein.",
-    barcode: "8901234567817",
+    barcode: "8901234567816",
     stockQty: 75,
     provenance: {
       source: "Owned Local Sourcing",
@@ -790,7 +790,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     replacementPolicy: "48 hours only replacement",
     sourceBasis: "USDA FDC ID 172448",
     description: "Non-GMO organic firm soybean tofu providing complete vegan protein and bone-supporting calcium sulfate.",
-    barcode: "8901234567818",
+    barcode: "8901234567817",
     stockQty: 70,
     provenance: {
       source: "Owned Local Sourcing",

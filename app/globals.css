@@ -2240,12 +2240,8 @@ textarea:focus-visible {
 
 .navbar-wrap input {
   min-height: 40px;
-  padding: 0.625rem 5rem 0.625rem 2.5rem !important;
-  background: var(--cream-bg) !important;
-  border-color: var(--border-light) !important;
-  border-radius: var(--radius-sm) !important;
-  box-shadow: none !important;
-  font-size: 0.875rem !important;
+  box-shadow: none;
+  font-size: 0.875rem;
 }
 
 .navbar-wrap form {
@@ -2253,28 +2249,11 @@ textarea:focus-visible {
 }
 
 .navbar-wrap form > svg {
-  position: absolute;
-  left: 0.75rem;
-  z-index: 1;
   color: var(--charcoal-500);
 }
 
 .navbar-wrap form > button {
-  position: absolute;
-  top: 50%;
-  right: 4px;
-  transform: translateY(-50%);
-  min-height: 32px;
-  padding: 0.375rem 0.75rem;
-  border-radius: 5px;
-  background: var(--forest-800) !important;
-  color: var(--paper) !important;
-  font-size: 0.75rem;
-}
-
-.navbar-wrap input:focus {
-  background: var(--paper) !important;
-  border-color: var(--green-500) !important;
+  min-height: 30px;
 }
 
 .mobile-toggle {
@@ -2447,8 +2426,10 @@ textarea:focus-visible {
 }
 
 .nv-card-media {
+  position: relative !important;
   height: 156px !important;
   background: #F5F6F3 !important;
+  overflow: hidden !important;
 }
 
 .nv-grocery-card img {

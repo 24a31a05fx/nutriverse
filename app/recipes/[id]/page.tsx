@@ -70,8 +70,6 @@ export async function generateStaticParams() {
   return SEEDED_RECIPES.map((r) => ({ id: r.id }));
 }
 
-export const dynamic = "force-dynamic";
-
 async function getRecipe(id: string): Promise<Recipe | null> {
   try {
     const res = await fetch(getServerApiUrl(`api/recipes/${encodeURIComponent(id)}`), {

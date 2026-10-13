@@ -838,6 +838,10 @@ def test_preparation_state_mismatch_cannot_be_bypassed_by_renaming():
     Roasted Sweet Potato) must NOT bypass the restriction.
     """
     session = SessionLocal()
+    original_names: dict = {}
+    chickpea = None
+    moong = None
+    sweet_pot = None
 
     try:
         # Pre-check: Ensure the 3 foods exist and have explicit mismatch markers
@@ -918,10 +922,14 @@ def test_preparation_state_mismatch_cannot_be_bypassed_by_renaming():
 
     finally:
         # Revert names
-        chickpea.name = original_names[chickpea.id]
-        moong.name = original_names[moong.id]
-        sweet_pot.name = original_names[sweet_pot.id]
-        session.commit()
+        if original_names:
+            if chickpea and chickpea.id in original_names:
+                chickpea.name = original_names[chickpea.id]
+            if moong and moong.id in original_names:
+                moong.name = original_names[moong.id]
+            if sweet_pot and sweet_pot.id in original_names:
+                sweet_pot.name = original_names[sweet_pot.id]
+            session.commit()
         session.close()
 
 

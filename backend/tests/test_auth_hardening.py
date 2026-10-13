@@ -9,6 +9,7 @@ from backend.app.main import (
     app,
     SessionLocal,
     User,
+    Food,
     RefreshToken,
     PasswordHasher,
     settings,
@@ -263,6 +264,13 @@ def test_role_guards():
     created = client.post("/api/admin/foods", headers=admin_headers, json=food_payload)
     assert created.status_code == 200
     assert created.json()["name"] == "Test Superfood Berry"
+    created_id = created.json().get("id")
+    if created_id:
+        with SessionLocal() as session:
+            f = session.get(Food, created_id)
+            if f:
+                session.delete(f)
+                session.commit()
 
 
 def test_failsafe_environment_default_and_production_startup(monkeypatch):

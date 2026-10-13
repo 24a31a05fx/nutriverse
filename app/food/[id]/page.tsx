@@ -37,8 +37,6 @@ export async function generateStaticParams() {
   return CATALOG_PRODUCTS.map((p) => ({ id: p.id }));
 }
 
-export const dynamic = "force-dynamic";
-
 async function getFood(id: string): Promise<Food | null> {
   try {
     const res = await fetch(getServerApiUrl(`api/foods/${encodeURIComponent(id)}`), {

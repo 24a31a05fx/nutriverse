@@ -86,7 +86,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       style={{ position: "relative" }}
     >
       {/* Top Media Container */}
-      <div className="nv-card-media">
+      <div className="nv-card-media relative">
         {/* Veg mark */}
         <div className="absolute top-2.5 left-2.5 z-10">
           <span className="nv-veg-mark" title="100% Vegetarian Whole Food" />
