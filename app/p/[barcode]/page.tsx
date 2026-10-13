@@ -4,8 +4,7 @@ import { AppShell } from "@/components/AppShell";
 import BarcodeLandingClient from "./BarcodeLandingClient";
 import { Food } from "@/lib/api";
 import { CATALOG_PRODUCTS, CatalogProduct } from "@/src/data/catalog";
-
-const BACKEND_INTERNAL_URL = process.env.BACKEND_INTERNAL_URL || "http://127.0.0.1:8000";
+import { getServerApiUrl } from "@/lib/server-api";
 
 function catalogProductToFood(p: CatalogProduct): Food {
   return {
@@ -40,9 +39,11 @@ export async function generateStaticParams() {
   }));
 }
 
+export const dynamic = "force-dynamic";
+
 async function getFoodByBarcode(barcode: string): Promise<Food | null> {
   try {
-    const res = await fetch(`${BACKEND_INTERNAL_URL}/api/foods/barcode/${encodeURIComponent(barcode)}`, {
+    const res = await fetch(getServerApiUrl(`api/foods/barcode/${encodeURIComponent(barcode)}`), {
       cache: "no-store",
     });
     if (res.ok) {

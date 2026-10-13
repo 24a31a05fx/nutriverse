@@ -1,30 +1,77 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { Camera, Search, Barcode, CheckCircle, AlertCircle, ArrowRight, Sparkles, RefreshCw } from "lucide-react";
-import { Food, api, formatPaise } from "@/lib/api";
+import {
+  Camera,
+  Search,
+  Barcode,
+  CheckCircle,
+  AlertCircle,
+  RefreshCw,
+  ShieldCheck,
+  Database,
+  ExternalLink,
+  HelpCircle,
+  Package,
+} from "lucide-react";
+import { Food, BarcodeLookupResponse, api, formatPaise } from "@/lib/api";
 
 interface ScannerViewProps {
   onSelectFood: (food: Food) => void;
   onAddToCart: (food: Food) => void;
 }
 
+function lookupResultToFood(result: BarcodeLookupResponse): Food | null {
+  if (!result.is_in_catalog || !result.product.id) return null;
+  const p = result.product;
+  const findVal = (code: string) =>
+    result.nutrients.find((n) => n.canonical_code === code && !n.is_unknown)?.value ?? 0;
+
+  return {
+    id: p.id || "",
+    name: p.name,
+    barcode: result.barcode,
+    category: p.category || "General",
+    nutrition_tags: JSON.stringify(p.nutrition_tags || []),
+    description: p.description || "",
+    price_paise: p.price_paise || 0,
+    unit: p.quantity || "1 unit",
+    serving_size: p.serving_size || "100g",
+    stock_qty: p.stock_qty || 0,
+    calories: findVal("ENERC_KCAL"),
+    protein_g: findVal("PROTCNT"),
+    carbs_g: findVal("CHOAVLDF"),
+    fat_g: findVal("FATCE"),
+    fibre_g: findVal("FIBTG"),
+    vitamins_json: "{}",
+    ingredients: p.ingredients || "",
+    storage_info: "Store in a cool, dry place.",
+    prep_methods: JSON.stringify([]),
+    dietary_tags: JSON.stringify(p.dietary_tags || []),
+    emoji: p.emoji || "🥗",
+    active: true,
+  };
+}
+
 export const ScannerView: React.FC<ScannerViewProps> = ({ onSelectFood, onAddToCart }) => {
   const [barcodeInput, setBarcodeInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lookupResult, setLookupResult] = useState<BarcodeLookupResponse | null>(null);
   const [scannedFood, setScannedFood] = useState<Food | null>(null);
   const [cameraActive, setCameraActive] = useState(false);
-  const [cameraPermissionState, setCameraPermissionState] = useState<"idle" | "requesting" | "denied" | "granted">("idle");
+  const [cameraPermissionState, setCameraPermissionState] = useState<
+    "idle" | "requesting" | "denied" | "granted"
+  >("idle");
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
-  // Sample barcode shortcuts for quick demonstration
+  // Sample retail barcode shortcuts for verification demonstration (all satisfy GS1 Modulo-10)
   const sampleBarcodes = [
-    { code: "8901234567890", name: "Sprouted Chickpeas", tag: "Protein & Iron" },
-    { code: "8901234567891", name: "Organic Baby Spinach", tag: "Folate & Lutein" },
-    { code: "8901234567893", name: "Probiotic Greek Yoghurt", tag: "High Protein & Calcium" },
-    { code: "8901234567892", name: "White Quinoa", tag: "Complete Amino Acids" },
-    { code: "8901234567800", name: "Organic Rolled Oats", tag: "Beta-Glucan Fiber" },
+    { code: "8901234567890", name: "Sprouted Chickpeas", tag: "Local Catalog (IFCT Ground Truth)" },
+    { code: "8901234567814", name: "Fresh Organic Ginger", tag: "Local Catalog (Store Inventory)" },
+    { code: "8901234567821", name: "Whole Finger Millet", tag: "Local Catalog (IFCT Verified)" },
+    { code: "8901030382345", name: "Tata Tea Gold", tag: "Open Food Facts (ODbL Reference)" },
+    { code: "012345678905", name: "Sample UPC-A Format", tag: "GS1 Retail GTIN-12 Spec" },
   ];
 
   const handleLookup = async (code: string) => {
@@ -32,13 +79,20 @@ export const ScannerView: React.FC<ScannerViewProps> = ({ onSelectFood, onAddToC
     if (!trimmed) return;
     setLoading(true);
     setError(null);
+    setLookupResult(null);
     setScannedFood(null);
 
     try {
-      const food = await api<Food>(`/foods/barcode/${encodeURIComponent(trimmed)}`);
-      setScannedFood(food);
+      const result = await api<BarcodeLookupResponse>(
+        `/barcode/lookup/${encodeURIComponent(trimmed)}`
+      );
+      setLookupResult(result);
+      if (result.is_in_catalog) {
+        const food = lookupResultToFood(result);
+        setScannedFood(food);
+      }
     } catch (err: any) {
-      setError(err?.message || `No product found for barcode ${trimmed}.`);
+      setError(err?.message || `No exact product match established for barcode '${trimmed}'.`);
     } finally {
       setLoading(false);
     }
@@ -62,7 +116,7 @@ export const ScannerView: React.FC<ScannerViewProps> = ({ onSelectFood, onAddToC
       }
       setCameraActive(true);
       setCameraPermissionState("granted");
-    } catch (err: any) {
+    } catch {
       setCameraPermissionState("denied");
       setError("Camera permission denied or camera device is unavailable in this environment. Manual entry is fully operational below.");
     }
@@ -84,21 +138,21 @@ export const ScannerView: React.FC<ScannerViewProps> = ({ onSelectFood, onAddToC
   }, []);
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
+    <div className="max-w-5xl mx-auto px-4 py-8">
       {/* Header */}
       <div className="text-center mb-8">
         <span className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-50 text-emerald-800 text-xs font-bold rounded-full mb-3 uppercase tracking-wider">
-          <Barcode className="w-3.5 h-3.5" /> Instant Nutrition Scanner
+          <Barcode className="w-3.5 h-3.5" /> Instant Nutrition Scanner & Provenance
         </span>
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Scan Any Food Barcode or QR Code</h1>
-        <p className="text-gray-600 max-w-xl mx-auto text-sm">
-          Point your device camera at a package barcode or enter the numeric EAN/UPC code to retrieve verified nutritional density, preparation guidelines, and companion recipe matches.
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">Scan Any Food Barcode or EAN Code</h1>
+        <p className="text-gray-600 max-w-2xl mx-auto text-sm">
+          Resolve physical package barcodes with exact matching. Local items are verified against ICMR-NIN IFCT laboratory ground truth; external packaged goods are cross-referenced with Open Food Facts under ODbL licensing.
         </p>
       </div>
 
       <div className="grid md:grid-cols-12 gap-8 items-start">
         {/* Scanner & Manual Input Column */}
-        <div className="md:col-span-7 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-6">
+        <div className="md:col-span-6 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-6">
           {/* Camera Frame */}
           <div>
             <div className="flex items-center justify-between mb-3">
@@ -151,7 +205,7 @@ export const ScannerView: React.FC<ScannerViewProps> = ({ onSelectFood, onAddToC
             </div>
             {cameraPermissionState === "denied" && (
               <p className="text-xs text-amber-600 mt-2 bg-amber-50 p-2.5 rounded-lg border border-amber-200/60">
-                Notice: Camera preview is inactive in this sandbox. Full manual lookup is enabled with zero latency below.
+                Notice: Camera preview is inactive in this browser sandbox. Full manual lookup is enabled with zero latency below.
               </p>
             )}
           </div>
@@ -176,7 +230,7 @@ export const ScannerView: React.FC<ScannerViewProps> = ({ onSelectFood, onAddToC
                   <Barcode className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-600" />
                   <input
                     type="text"
-                    placeholder="Enter EAN-13 code (e.g. 8901234567890)"
+                    placeholder="Enter EAN/UPC code (e.g. 8901234567890)"
                     value={barcodeInput}
                     onChange={(e) => setBarcodeInput(e.target.value)}
                     className="w-full pl-11 pr-4 py-2.5 text-sm rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-mono"
@@ -226,16 +280,30 @@ export const ScannerView: React.FC<ScannerViewProps> = ({ onSelectFood, onAddToC
         </div>
 
         {/* Scan Result Column */}
-        <div className="md:col-span-5 space-y-4">
-          <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm min-h-[420px] flex flex-col justify-between">
+        <div className="md:col-span-6 space-y-4">
+          <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm min-h-[460px] flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between pb-3 border-b border-gray-100 mb-4">
                 <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider">
                   Nutritional Verification Output
                 </h3>
-                {scannedFood && (
-                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
-                    <CheckCircle className="w-3 h-3" /> Database Match
+                {lookupResult && (
+                  <span
+                    className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full ${
+                      lookupResult.is_in_catalog
+                        ? "text-emerald-800 bg-emerald-50 border border-emerald-200"
+                        : "text-blue-800 bg-blue-50 border border-blue-200"
+                    }`}
+                  >
+                    {lookupResult.is_in_catalog ? (
+                      <>
+                        <CheckCircle className="w-3 h-3 text-emerald-600" /> Catalog Verified Match
+                      </>
+                    ) : (
+                      <>
+                        <Database className="w-3 h-3 text-blue-600" /> Open Food Facts Reference
+                      </>
+                    )}
                   </span>
                 )}
               </div>
@@ -243,98 +311,175 @@ export const ScannerView: React.FC<ScannerViewProps> = ({ onSelectFood, onAddToC
               {loading && (
                 <div className="py-20 text-center space-y-3">
                   <RefreshCw className="w-8 h-8 text-emerald-600 animate-spin mx-auto" />
-                  <p className="text-sm font-medium text-gray-600">Querying authoritative Nutriverse ledger...</p>
+                  <p className="text-sm font-medium text-gray-600">Resolving barcode against authoritative ledgers...</p>
                 </div>
               )}
 
               {error && (
                 <div className="p-4 rounded-xl bg-red-50 border border-red-100 text-red-700 text-xs space-y-2">
                   <div className="flex items-center gap-2 font-semibold text-red-800">
-                    <AlertCircle className="w-4 h-4 shrink-0" /> No Database Match Found
+                    <AlertCircle className="w-4 h-4 shrink-0" /> Exact Match Not Established
                   </div>
                   <p>{error}</p>
                   <p className="text-[11px] text-red-600">
-                    Nutriverse only returns verified laboratory compositions. We never invent nutritional values for unregistered barcodes.
+                    Nutriverse enforces deterministic resolution. We never select a product based on similar names, brands, or fuzzy barcodes.
                   </p>
                 </div>
               )}
 
-              {!loading && !error && !scannedFood && (
+              {!loading && !error && !lookupResult && (
                 <div className="py-20 text-center text-gray-600 space-y-2">
-                  <Barcode className="w-12 h-12 mx-auto stroke-1" />
-                  <p className="text-sm font-medium">Ready to inspect whole foods</p>
+                  <Barcode className="w-12 h-12 mx-auto stroke-1 text-gray-400" />
+                  <p className="text-sm font-medium">Ready to inspect whole foods & packaged items</p>
                   <p className="text-xs max-w-xs mx-auto">
-                    Click any test barcode above or scan a package code to unveil instant nutrient density.
+                    Click any sample barcode or enter a numeric package code to unveil authenticated nutrient density.
                   </p>
                 </div>
               )}
 
-              {scannedFood && (
+              {lookupResult && (
                 <div className="space-y-4 animate-in fade-in duration-300">
-                  <div className="flex items-center gap-3">
-                    <span className="text-3xl p-2 bg-emerald-50 rounded-xl border border-emerald-100/80">
-                      {scannedFood.emoji}
-                    </span>
-                    <div>
-                      <h4 className="text-base font-bold text-gray-900">{scannedFood.name}</h4>
-                      <p className="text-xs text-gray-600">
-                        {scannedFood.category} • {scannedFood.serving_size}
-                      </p>
-                    </div>
-                  </div>
-
-                  <p className="text-xs text-gray-600 leading-relaxed bg-gray-50 p-3 rounded-xl border border-gray-100">
-                    {scannedFood.description}
-                  </p>
-
-                  {/* Macro Highlights */}
-                  <div className="grid grid-cols-4 gap-2 text-center">
-                    <div className="p-2 bg-emerald-50/70 rounded-lg">
-                      <span className="text-[10px] text-gray-600 block">Calories</span>
-                      <span className="text-xs font-bold text-emerald-900">{scannedFood.calories}</span>
-                    </div>
-                    <div className="p-2 bg-blue-50/70 rounded-lg">
-                      <span className="text-[10px] text-gray-600 block">Protein</span>
-                      <span className="text-xs font-bold text-blue-900">{scannedFood.protein_g}g</span>
-                    </div>
-                    <div className="p-2 bg-amber-50/70 rounded-lg">
-                      <span className="text-[10px] text-gray-600 block">Carbs</span>
-                      <span className="text-xs font-bold text-amber-900">{scannedFood.carbs_g}g</span>
-                    </div>
-                    <div className="p-2 bg-purple-50/70 rounded-lg">
-                      <span className="text-[10px] text-gray-600 block">Fiber</span>
-                      <span className="text-xs font-bold text-purple-900">{scannedFood.fibre_g}g</span>
-                    </div>
-                  </div>
-
-                  {/* Biological Tags */}
-                  <div className="pt-2">
-                    <span className="text-[11px] font-semibold text-gray-600 block mb-1.5">
-                      Identified Biological Contributions:
-                    </span>
-                    <div className="flex flex-wrap gap-1">
-                      {JSON.parse(scannedFood.nutrition_tags || "[]").map((t: string) => (
-                        <span
-                          key={t}
-                          className="px-2 py-0.5 bg-emerald-100/70 text-emerald-800 text-[10px] font-medium rounded-full"
-                        >
-                          {t.replace(/_/g, " ")}
+                  {/* Product Header */}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      {lookupResult.product.image_url ? (
+                        <img
+                          src={lookupResult.product.image_url}
+                          alt={lookupResult.product.name}
+                          className="w-12 h-12 rounded-xl object-contain bg-white border border-gray-100 p-0.5 shadow-sm"
+                        />
+                      ) : (
+                        <span className="text-3xl p-2 bg-emerald-50 rounded-xl border border-emerald-100/80">
+                          {lookupResult.product.emoji || "📦"}
                         </span>
+                      )}
+                      <div>
+                        <h4 className="text-base font-bold text-gray-900">{lookupResult.product.name}</h4>
+                        <p className="text-xs text-gray-600">
+                          {lookupResult.product.brand && <span className="font-semibold text-gray-800">{lookupResult.product.brand} • </span>}
+                          {lookupResult.product.category || "General"} • Basis: {lookupResult.basis}
+                        </p>
+                        <p className="text-[11px] font-mono text-gray-600 mt-0.5">
+                          GTIN/EAN: {lookupResult.barcode}
+                        </p>
+                      </div>
+                    </div>
+
+                    <span
+                      className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${
+                        lookupResult.verification_status === "verified_reference"
+                          ? "bg-emerald-100 text-emerald-800"
+                          : "bg-blue-100 text-blue-800"
+                      }`}
+                    >
+                      {lookupResult.verification_status.replace(/_/g, " ")}
+                    </span>
+                  </div>
+
+                  {/* Provenance & Licensing Callout */}
+                  <div
+                    className={`p-3 rounded-xl border text-xs space-y-1 ${
+                      lookupResult.is_in_catalog
+                        ? "bg-emerald-50/50 border-emerald-100 text-emerald-950"
+                        : "bg-blue-50/60 border-blue-100 text-blue-950"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between font-semibold">
+                      <span className="flex items-center gap-1.5">
+                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-700" /> Source: {lookupResult.source.name}
+                      </span>
+                      {lookupResult.source.retrieval_date && (
+                        <span className="text-[10px] text-gray-600">
+                          Fetched: {new Date(lookupResult.source.retrieval_date).toLocaleDateString()}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] opacity-90">{lookupResult.license_attribution}</p>
+
+                    {/* Image-Specific Provenance & Attribution (Audit B) */}
+                    {lookupResult.source.image_provenance && lookupResult.source.image_provenance.license_status !== "no_image" && (
+                      <div className="pt-1.5 mt-1 border-t border-current/15 text-[11px] space-y-0.5">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-[10px] uppercase tracking-wider">
+                            Photography Rights:
+                          </span>
+                          <span
+                            className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                              lookupResult.source.image_provenance.license_status === "known"
+                                ? "bg-emerald-100/90 text-emerald-950"
+                                : "bg-amber-100/90 text-amber-950"
+                            }`}
+                          >
+                            {lookupResult.source.image_provenance.license_status === "known"
+                              ? (lookupResult.source.image_provenance.license || "Verified Image License")
+                              : "Unverified Image License"}
+                          </span>
+                        </div>
+                        <p className="text-[10px] opacity-80 italic">
+                          {lookupResult.source.image_provenance.attribution}
+                        </p>
+                      </div>
+                    )}
+
+                    {!lookupResult.is_in_catalog && (
+                      <p className="text-[10px] font-medium text-amber-800 bg-amber-50/80 p-1.5 rounded border border-amber-200/50 mt-1">
+                        Notice: This product is an external reference from Open Food Facts. It is not currently available in Nutriverse store inventory for ordering.
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Serving and Quantity Specs */}
+                  <div className="grid grid-cols-2 gap-2 text-xs bg-gray-50 p-2.5 rounded-xl border border-gray-100">
+                    <div>
+                      <span className="text-[10px] text-gray-600 block">Declared Serving Size</span>
+                      <span className="font-semibold text-gray-800">{lookupResult.product.serving_size}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-gray-600 block">Package Net Content</span>
+                      <span className="font-semibold text-gray-800">{lookupResult.product.quantity || "N/A"}</span>
+                    </div>
+                  </div>
+
+                  {/* Nutrients Grid */}
+                  <div>
+                    <span className="text-[11px] font-bold text-gray-700 uppercase tracking-wider block mb-2">
+                      Nutrient Profile ({lookupResult.basis}):
+                    </span>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {lookupResult.nutrients.slice(0, 6).map((n) => (
+                        <div key={n.canonical_code} className="p-2 rounded-lg bg-gray-50 border border-gray-100 text-xs">
+                          <span className="text-[10px] text-gray-600 block truncate">{n.nutrient_name}</span>
+                          {n.is_unknown ? (
+                            <span className="text-[11px] font-semibold text-amber-700 bg-amber-50 px-1 py-0.5 rounded">
+                              Not Reported
+                            </span>
+                          ) : (
+                            <span className="text-xs font-bold text-gray-900">
+                              {n.value} {n.unit}
+                            </span>
+                          )}
+                        </div>
                       ))}
                     </div>
                   </div>
 
-                  <div className="pt-2">
-                    <span className="text-[11px] font-semibold text-gray-600 block mb-1">
-                      Ingredients & Composition:
-                    </span>
-                    <p className="text-xs text-gray-700 italic">{scannedFood.ingredients}</p>
-                  </div>
+                  {/* Ingredients */}
+                  {lookupResult.product.ingredients && (
+                    <div className="pt-1">
+                      <span className="text-[11px] font-semibold text-gray-600 block mb-1">
+                        Ingredients & Formulation:
+                      </span>
+                      <p className="text-xs text-gray-700 italic bg-gray-50 p-2 rounded-lg border border-gray-100">
+                        {lookupResult.product.ingredients}
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
 
-            {scannedFood && (
+            {/* Action buttons (only for active catalog items) */}
+            {scannedFood && lookupResult?.is_in_catalog && (
               <div className="pt-4 border-t border-gray-100 flex gap-2">
                 <button
                   type="button"

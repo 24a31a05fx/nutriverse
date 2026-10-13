@@ -3,8 +3,7 @@ import { notFound } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import RecipeDetailClient from "./RecipeDetailClient";
 import { Recipe } from "@/lib/api";
-
-const BACKEND_INTERNAL_URL = process.env.BACKEND_INTERNAL_URL || "http://127.0.0.1:8000";
+import { getServerApiUrl } from "@/lib/server-api";
 
 const SEEDED_RECIPES: Recipe[] = [
   {
@@ -71,9 +70,11 @@ export async function generateStaticParams() {
   return SEEDED_RECIPES.map((r) => ({ id: r.id }));
 }
 
+export const dynamic = "force-dynamic";
+
 async function getRecipe(id: string): Promise<Recipe | null> {
   try {
-    const res = await fetch(`${BACKEND_INTERNAL_URL}/api/recipes/${id}`, {
+    const res = await fetch(getServerApiUrl(`api/recipes/${encodeURIComponent(id)}`), {
       cache: "no-store",
     });
     if (res.ok) {

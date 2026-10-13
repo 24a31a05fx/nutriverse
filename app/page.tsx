@@ -1,16 +1,44 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import AppHeader, { ActiveTab } from "@/components/AppHeader";
 import { StorefrontView } from "@/components/StorefrontView";
-import FoodExplorerView from "@/components/FoodExplorerView";
-import CalinPacksView from "@/components/CalinPacksView";
-import RecipesView from "@/components/RecipesView";
-import CombinationsView from "@/components/CombinationsView";
-import { ScannerView } from "@/components/ScannerView";
-import { CustomerDashboardView } from "@/components/CustomerDashboardView";
-import { AdminPortalView } from "@/components/AdminPortalView";
+
+const tabLoading = () => (
+  <div className="container py-12 text-center text-sm text-gray-500" role="status">
+    Loading…
+  </div>
+);
+
+const FoodExplorerView = dynamic(() => import("@/components/FoodExplorerView"), {
+  loading: tabLoading,
+});
+const CalinPacksView = dynamic(() => import("@/components/CalinPacksView"), {
+  loading: tabLoading,
+});
+const RecipesView = dynamic(() => import("@/components/RecipesView"), {
+  loading: tabLoading,
+});
+const CombinationsView = dynamic(() => import("@/components/CombinationsView"), {
+  loading: tabLoading,
+});
+const ScannerView = dynamic(
+  () => import("@/components/ScannerView").then((module) => module.ScannerView),
+  { loading: tabLoading },
+);
+const CustomerDashboardView = dynamic(
+  () =>
+    import("@/components/CustomerDashboardView").then(
+      (module) => module.CustomerDashboardView,
+    ),
+  { loading: tabLoading },
+);
+const AdminPortalView = dynamic(
+  () => import("@/components/AdminPortalView").then((module) => module.AdminPortalView),
+  { loading: tabLoading },
+);
 
 import FoodDetailModal from "@/components/FoodDetailModal";
 import { OnboardingModal } from "@/components/OnboardingModal";

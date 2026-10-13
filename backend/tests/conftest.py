@@ -1,4 +1,13 @@
+import os
 import sys
+
+# Ensure test suite runs deterministically on SQLite unless live PostgreSQL is explicitly targeted
+if os.environ.get("LIVE_POSTGRES") != "1":
+    if not os.environ.get("DATABASE_URL") or "postgresql" in os.environ.get("DATABASE_URL", ""):
+        os.environ["DATABASE_URL"] = "sqlite:///./nutriverse.db"
+if not os.environ.get("REDIS_URL"):
+    os.environ["REDIS_URL"] = "memory://"
+
 import pytest
 from backend.app.main import limiter, seed_initial_data
 

@@ -77,6 +77,72 @@ export interface Food {
   active: boolean;
 }
 
+export interface BarcodeNutrient {
+  canonical_code: string;
+  nutrient_name: string;
+  value: number | null;
+  unit: string;
+  basis: string;
+  is_unknown: boolean;
+  unknown_reason: string | null;
+  verification_status: string;
+}
+
+export interface BarcodeProductIdentity {
+  id: string | null;
+  name: string;
+  brand: string | null;
+  category: string | null;
+  description: string | null;
+  serving_size: string;
+  serving_quantity: number | null;
+  quantity: string | null;
+  packaging: string | null;
+  countries: string | null;
+  ingredients: string | null;
+  image_url: string | null;
+  price_paise: number | null;
+  stock_qty: number;
+  emoji: string;
+  nutrition_tags?: string[];
+  dietary_tags?: string[];
+}
+
+export interface ImageProvenance {
+  url: string | null;
+  source_url: string | null;
+  license: string | null;
+  license_status: "known" | "unknown" | "no_image";
+  contributor: string | null;
+  attribution: string;
+}
+
+export interface BarcodeSourceInfo {
+  name: string;
+  record_id: string | null;
+  publisher?: string;
+  license: string;
+  attribution: string;
+  retrieval_date?: string | null;
+  image_license?: string | null;
+  image_attribution?: string | null;
+  image_contributor?: string | null;
+  image_provenance?: ImageProvenance;
+}
+
+export interface BarcodeLookupResponse {
+  barcode: string;
+  match_type: "local_catalog" | "external_fresh" | "external_cached";
+  is_in_catalog: boolean;
+  product: BarcodeProductIdentity;
+  basis: string;
+  nutrients: BarcodeNutrient[];
+  source: BarcodeSourceInfo;
+  verification_status: string;
+  license_attribution: string;
+  legal_disclaimer?: string;
+}
+
 export interface Recipe {
   id: string;
   name: string;
@@ -302,4 +368,413 @@ export function formatPaise(paise: number): string {
 }
 
 export const money = formatPaise;
+
+
+// Phase 5: Deterministic Personalized Nutrition Target Estimation Types
+export interface TargetMacroItem {
+  target_g_day: number;
+  target_kcal_day?: number;
+  energy_percentage?: number;
+  reference_basis: string;
+  amdr_range_g_day?: { min: number; max: number };
+  amdr_percentage_range?: string;
+  standard_applied?: string;
+  floor_applied?: boolean;
+  official_reference_g_day?: number;
+  planning_floor_g_day?: number;
+  planning_floor_applied?: boolean;
+  unit?: string;
+}
+
+export interface TargetFreshnessInfo {
+  is_stale: boolean;
+  persisted_calorie_target: number;
+  freshly_calculated_daily_energy_target_kcal: number;
+  persisted_calculation_version?: string;
+  active_engine_version?: string;
+  version_matched?: boolean;
+  retired_or_unrecognized_version?: boolean;
+  note?: string;
+}
+
+export interface NutritionTargetResult {
+  calculation_id: string;
+  timestamp: string;
+  method: {
+    identifier: string;
+    name: string;
+    version: string;
+    citation: string;
+    equation_formula: string;
+    applicable_population: string;
+  };
+  inputs: {
+    age_years: number;
+    sex: "female" | "male";
+    height: { value: number; unit: string; normalized_cm: number };
+    weight: { value: number; unit: string; normalized_kg: number };
+    activity_level: { name: string; pal_multiplier: number; description: string };
+    goal: { name: string; energy_adjustment_kcal: number; description: string };
+    optional_dietary?: { allergies: string; food_preferences: string };
+  };
+  biometric_indicators: {
+    bmi: number;
+    bmi_classification: string;
+    screening_note?: string;
+  };
+  energy_targets: {
+    bmr_kcal_day: number;
+    tdee_kcal_day: number;
+    raw_daily_target_kcal: number;
+    daily_energy_target_kcal: number;
+    safety_floor_applied: boolean;
+    safety_floor_threshold_kcal: number;
+    guardrail_applied?: boolean;
+    guardrail_threshold_kcal?: number;
+    guardrail_type?: string;
+    guardrail_basis?: string;
+  };
+  macronutrient_targets: {
+    protein: TargetMacroItem;
+    fat: TargetMacroItem;
+    carbohydrates: TargetMacroItem;
+    dietary_fiber: TargetMacroItem;
+    macro_energy_accounting?: {
+      total_reported_macro_kcal_day: number;
+      daily_energy_target_kcal: number;
+      discrepancy_kcal: number;
+      accounting_disclosure?: string;
+    };
+  };
+  warnings: string[];
+  assumptions_and_limitations: string[];
+  disclaimer: string;
+}
+
+export interface NutritionTargetInput {
+  age: number;
+  sex: "female" | "male";
+  height: number;
+  height_unit?: "cm" | "m" | "in" | "ft_in";
+  weight: number;
+  weight_unit?: "kg" | "lbs";
+  activity_level: string | number;
+  goal?: string;
+  method?: string;
+  optional_allergies?: string;
+  optional_preferences?: string;
+}
+
+export interface SavedNutritionTargetProfile {
+  profile_id: string;
+  user_id: string;
+  updated_at: string | null;
+  consent_revoked_at: string | null;
+  persisted_snapshot?: {
+    calorie_target: number;
+    bmr: number;
+    calculation_version: string;
+    saved_at: string | null;
+  };
+  target_freshness?: TargetFreshnessInfo;
+  saved_inputs: {
+    age: number;
+    sex: string;
+    height_cm: number;
+    weight_kg: number;
+    activity_level: number;
+    goal: string;
+    food_preferences: string;
+    allergies: string;
+    budget_paise: number;
+    calculation_version?: string;
+    persisted_calorie_target?: number;
+    persisted_bmr?: number;
+  };
+  estimate: NutritionTargetResult;
+}
+
+export async function calculateNutritionTargets(
+  input: NutritionTargetInput
+): Promise<NutritionTargetResult> {
+  return await api<NutritionTargetResult>("/nutrition-targets/calculate", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function getSavedNutritionTargets(): Promise<SavedNutritionTargetProfile> {
+  return await api<SavedNutritionTargetProfile>("/nutrition-targets/me");
+}
+
+export async function saveNutritionTargets(
+  input: NutritionTargetInput & {
+    consent_given: boolean;
+    food_preferences?: string;
+    allergies?: string;
+    budget_paise?: number;
+  }
+): Promise<{ message: string; saved_inputs: any; estimate: NutritionTargetResult }> {
+  return await api<{ message: string; saved_inputs: any; estimate: NutritionTargetResult }>(
+    "/nutrition-targets/me",
+    {
+      method: "PUT",
+      body: JSON.stringify(input),
+    }
+  );
+}
+
+export async function deleteSavedNutritionTargets(): Promise<{ message: string; deleted: boolean }> {
+  return await api<{ message: string; deleted: boolean }>("/nutrition-targets/me", {
+    method: "DELETE",
+  });
+}
+
+
+// Phase 6.0: Personalized Nutrition Recommendations Types & Client
+export interface RecommendationPortion {
+  mass_g: number;
+  food_state: string;
+  portion_type: "documented_serving" | "standardized_comparison_100g" | "explicit_override" | string;
+  is_standardized_100g_fallback: boolean;
+  serving_size_catalog_raw?: string;
+  basis: string;
+  basis_notes: string;
+  edible_weight_assumption?: string;
+}
+
+export interface NutrientContribution {
+  target_nutrient: string;
+  canonical_code: string;
+  nutrient_name: string;
+  amount: number;
+  unit: string;
+  user_target: number;
+  target_contribution_pct: number;
+  remaining_target: number;
+  uncovered_target_difference?: number;
+  portion_energy_kcal: number | null;
+  nutrient_density?: number | null;
+  nutrient_density_per_100kcal: number | null;
+  density_label?: string | null;
+  verification_status: string;
+}
+
+export interface RecommendationSourceProvenance {
+  source_record_id: string;
+  external_id: string;
+  external_name: string;
+  data_source_name: string;
+  publisher: string;
+  license: string;
+  license_url: string | null;
+  retrieval_date: string | null;
+  analytical_basis?: string;
+  scholarly_citation?: string | null;
+  copyright_notice?: string | null;
+}
+
+export interface DataCompleteness {
+  total_tracked: number;
+  known_count: number;
+  unknown_count: number;
+  completeness_ratio: number;
+}
+
+export interface RecommendedFood {
+  food_id: string;
+  food_name: string;
+  category: string;
+  emoji: string;
+  price_paise: number;
+  portion: RecommendationPortion;
+  nutrient_contribution: NutrientContribution;
+  explanation: string;
+  source_provenance: RecommendationSourceProvenance[];
+  data_completeness: DataCompleteness;
+}
+
+export interface RecommendationsResponse {
+  engine_version: string;
+  timestamp: string;
+  user_id?: string;
+  profile_id?: string;
+  target_nutrient: {
+    query_key: string;
+    canonical_code: string;
+    name: string;
+    unit: string;
+    user_target: number;
+    reference_standard: string;
+  };
+  query_parameters: {
+    limit: number;
+    portion_override_g: number | null;
+    strict_verified: boolean;
+    food_state: string;
+    declared_allergies: string;
+  };
+  counts: {
+    total_active_foods_evaluated: number;
+    eligible_candidates_found: number;
+    recommendations_returned: number;
+    excluded_count: number;
+  };
+  ranking_semantics?: {
+    primary_criterion: string;
+    secondary_criterion: string;
+    tertiary_criterion: string;
+    disclaimer: string;
+  };
+  target_comparison_disclosure?: string;
+  recommendations: RecommendedFood[];
+  excluded_candidates_summary?: Array<{
+    food_id: string;
+    food_name: string;
+    reason: string;
+  }>;
+  excluded_candidates?: Array<{
+    food_id: string;
+    food_name: string;
+    reason: string;
+  }>;
+  warnings: string[];
+  disclaimer: string;
+  target_freshness?: TargetFreshnessInfo | null;
+}
+
+export interface RecommendationQueryOptions {
+  target_nutrient?: "protein" | "dietary_fiber" | "energy" | "fat" | "carbohydrates" | string;
+  limit?: number;
+  portion_override_g?: number;
+  strict_verified?: boolean;
+  food_state?: "raw" | "cooked";
+}
+
+export async function getPersonalizedRecommendations(
+  options: RecommendationQueryOptions = {}
+): Promise<RecommendationsResponse> {
+  const params = new URLSearchParams();
+  if (options.target_nutrient) params.set("target_nutrient", options.target_nutrient);
+  if (options.limit !== undefined) params.set("limit", String(options.limit));
+  if (options.portion_override_g !== undefined) params.set("portion_override_g", String(options.portion_override_g));
+  if (options.strict_verified !== undefined) params.set("strict_verified", String(options.strict_verified));
+  if (options.food_state) params.set("food_state", options.food_state);
+
+  const qs = params.toString();
+  const endpoint = `/recommendations/me${qs ? `?${qs}` : ""}`;
+  return await api<RecommendationsResponse>(endpoint);
+}
+
+export async function calculateStatelessRecommendations(
+  payload: {
+    target_nutrient: string;
+    age: number;
+    sex: string;
+    height: number;
+    height_unit?: string;
+    weight: number;
+    weight_unit?: string;
+    activity_level: string | number;
+    goal?: string;
+    method?: string;
+    optional_allergies?: string;
+    limit?: number;
+    portion_override_g?: number;
+    strict_verified?: boolean;
+    food_state?: string;
+  }
+): Promise<RecommendationsResponse> {
+  return await api<RecommendationsResponse>("/recommendations/calculate", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+// Daily Food Intake Logging & Nutrition Summary
+export interface DailyFoodLogItem {
+  id: string;
+  date: string;
+  food_id?: string | null;
+  food_name: string;
+  meal_type: "breakfast" | "lunch" | "dinner" | "snack";
+  quantity: number;
+  unit: string;
+  mass_g: number;
+  calories: number;
+  protein_g: number;
+  carbs_g: number;
+  fat_g: number;
+  fibre_g: number;
+  nutrients_json: string;
+  source_basis: string;
+  data_completeness: string;
+  created_at: string;
+}
+
+export interface DailyNutritionSummary {
+  date: string;
+  items: DailyFoodLogItem[];
+  consumed_totals: {
+    calories: number;
+    protein_g: number;
+    carbs_g: number;
+    fat_g: number;
+    fibre_g: number;
+  };
+  target_totals?: {
+    calories: number;
+    protein_g: number;
+    carbs_g: number;
+    fat_g: number;
+    fibre_g: number;
+  } | null;
+  remaining?: {
+    calories: number;
+    protein_g: number;
+    carbs_g: number;
+    fat_g: number;
+    fibre_g: number;
+  } | null;
+  progress_percentage?: {
+    calories: number;
+    protein_g: number;
+    carbs_g: number;
+    fat_g: number;
+    fibre_g: number;
+  } | null;
+  data_completeness_notes: string[];
+}
+
+export interface LogFoodInput {
+  food_id?: string;
+  food_name?: string;
+  meal_type: "breakfast" | "lunch" | "dinner" | "snack";
+  quantity: number;
+  unit: string;
+  food_state?: string;
+  date?: string;
+}
+
+export async function getFoods(): Promise<Food[]> {
+  return api<Food[]>("/foods");
+}
+
+export async function getDailyNutritionSummary(date: string): Promise<DailyNutritionSummary> {
+  return api<DailyNutritionSummary>(`/nutrition/daily-log?date=${encodeURIComponent(date)}`);
+}
+
+export async function logDailyFood(input: LogFoodInput): Promise<DailyFoodLogItem> {
+  return api<DailyFoodLogItem>("/nutrition/daily-log", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function deleteDailyFood(logId: string): Promise<{ message: string; deleted_id: string }> {
+  return api<{ message: string; deleted_id: string }>(`/nutrition/daily-log/${encodeURIComponent(logId)}`, {
+    method: "DELETE",
+  });
+}
+
 

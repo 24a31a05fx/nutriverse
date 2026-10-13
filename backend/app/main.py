@@ -50,7 +50,9 @@ from sqlalchemy.orm import (
     Mapped,
     Session,
     mapped_column,
+    relationship,
     sessionmaker,
+    validates,
 )
 
 
@@ -70,6 +72,7 @@ class Settings(BaseSettings):
     rate_limit_ai_chat: str = "10/minute"
     trusted_proxy: Optional[str] = None
     redis_url: Optional[str] = None
+    allow_synthetic_barcodes: bool = False
 
 
 INSECURE_JWT_SECRETS = {
@@ -199,6 +202,13 @@ class User(Base):
     role: Mapped[str] = mapped_column(String(20), default=Role.user.value)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
+    verification_reviews: Mapped[List[VerificationRecord]] = relationship(
+        "VerificationRecord", back_populates="reviewer"
+    )
+    daily_food_logs: Mapped[List[DailyFoodLog]] = relationship(
+        "DailyFoodLog", back_populates="user", cascade="all, delete-orphan"
+    )
+
 
 class NutritionProfile(Base):
     __tablename__ = "nutrition_profiles"
@@ -227,7 +237,7 @@ class Food(Base):
     barcode: Mapped[Optional[str]] = mapped_column(String(32), unique=True, nullable=True, index=True)
     category: Mapped[str] = mapped_column(String(80), index=True)  # Conventional category (Legumes, Greens, etc.)
     nutrition_tags: Mapped[str] = mapped_column(Text, default="[]")  # JSON array of tags: protein_rich, fiber_rich, etc.
-    description: Mapped[str] = mapped_column(Text)
+    description: Mapped[str] = mapped_column(Text, default="")
     price_paise: Mapped[int] = mapped_column(Integer, default=19900)
     gst_rate_percent: Mapped[Optional[float]] = mapped_column(Float, nullable=True, default=None)
     unit: Mapped[str] = mapped_column(String(40), default="500g")
@@ -250,6 +260,13 @@ class Food(Base):
     image_verified_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     approval_status: Mapped[str] = mapped_column(String(30), default="pending")
     active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    nutrients_rel: Mapped[List[FoodNutrient]] = relationship(
+        "FoodNutrient", back_populates="food", cascade="all, delete-orphan"
+    )
+    calin_pack_items: Mapped[List[CalinPackItem]] = relationship(
+        "CalinPackItem", back_populates="food", cascade="all, delete-orphan"
+    )
 
 
 class Recipe(Base):
@@ -298,6 +315,176 @@ class CalinPackTier(Base):
     max_substitutions: Mapped[int] = mapped_column(Integer, default=2)
     items_json: Mapped[str] = mapped_column(Text, default="[]")  # list of food names/ids with qty
     active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    items_rel: Mapped[List[CalinPackItem]] = relationship(
+        "CalinPackItem", back_populates="pack_tier", cascade="all, delete-orphan"
+    )
+
+
+class VerificationStatus(str, Enum):
+    verified_reference = "verified_reference"
+    label_derived = "label_derived"
+    source_reported = "source_reported"
+    pending_review = "pending_review"
+    rejected = "rejected"
+
+
+ALLOWED_VERIFICATION_STATUSES = {
+    VerificationStatus.verified_reference.value,
+    VerificationStatus.label_derived.value,
+    VerificationStatus.source_reported.value,
+    VerificationStatus.pending_review.value,
+    VerificationStatus.rejected.value,
+}
+
+
+class DataSource(Base):
+    __tablename__ = "data_sources"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    name: Mapped[str] = mapped_column(String(120), unique=True, index=True)
+    publisher: Mapped[str] = mapped_column(String(200))
+    url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    license: Mapped[str] = mapped_column(String(120))
+    license_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    version: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
+    terms_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    source_records: Mapped[List[SourceRecord]] = relationship(
+        "SourceRecord", back_populates="data_source", cascade="all, delete-orphan"
+    )
+
+
+class SourceRecord(Base):
+    __tablename__ = "source_records"
+    __table_args__ = (
+        Index("ix_source_records_source_external", "source_id", "external_id", unique=True),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    source_id: Mapped[str] = mapped_column(ForeignKey("data_sources.id", ondelete="CASCADE"), index=True)
+    external_id: Mapped[str] = mapped_column(String(120), index=True)
+    external_name: Mapped[str] = mapped_column(String(255))
+    raw_payload: Mapped[str] = mapped_column(Text, default="{}")
+    raw_checksum: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    retrieval_date: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    data_source: Mapped[DataSource] = relationship("DataSource", back_populates="source_records")
+    food_nutrients: Mapped[List[FoodNutrient]] = relationship("FoodNutrient", back_populates="source_record")
+
+
+class Nutrient(Base):
+    __tablename__ = "nutrients"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    name: Mapped[str] = mapped_column(String(100), unique=True, index=True)
+    canonical_code: Mapped[str] = mapped_column(String(50), unique=True, index=True)
+    unit: Mapped[str] = mapped_column(String(20))
+    category: Mapped[str] = mapped_column(String(50), default="macronutrient", index=True)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    applicable_basis: Mapped[str] = mapped_column(String(50), default="per_100g_edible")
+    icmr_rda_adult_male: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    icmr_rda_adult_female: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    food_nutrients: Mapped[List[FoodNutrient]] = relationship(
+        "FoodNutrient", back_populates="nutrient", cascade="all, delete-orphan"
+    )
+
+
+class FoodNutrient(Base):
+    __tablename__ = "food_nutrients"
+    __table_args__ = (
+        Index("ix_food_nutrients_food_nutrient_state", "food_id", "nutrient_id", "food_state", "basis", unique=True),
+        Index("ix_food_nutrients_verification_status", "verification_status"),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    food_id: Mapped[str] = mapped_column(ForeignKey("foods.id", ondelete="CASCADE"), index=True)
+    nutrient_id: Mapped[str] = mapped_column(ForeignKey("nutrients.id", ondelete="RESTRICT"), index=True)
+    source_record_id: Mapped[Optional[str]] = mapped_column(
+        ForeignKey("source_records.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    value: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    unit: Mapped[str] = mapped_column(String(20))
+    basis: Mapped[str] = mapped_column(String(50), default="per_100g_edible")
+    food_state: Mapped[str] = mapped_column(String(50), default="raw")
+    verification_status: Mapped[str] = mapped_column(String(40), default=VerificationStatus.pending_review.value)
+    is_unknown: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    unknown_reason: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    confidence_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    food: Mapped[Food] = relationship("Food", back_populates="nutrients_rel")
+    nutrient: Mapped[Nutrient] = relationship("Nutrient", back_populates="food_nutrients")
+    source_record: Mapped[Optional[SourceRecord]] = relationship("SourceRecord", back_populates="food_nutrients")
+    verification_records: Mapped[List[VerificationRecord]] = relationship(
+        "VerificationRecord", back_populates="food_nutrient", cascade="all, delete-orphan"
+    )
+
+    @validates("verification_status")
+    def validate_verification_status(self, key: str, value: str) -> str:
+        if value not in ALLOWED_VERIFICATION_STATUSES:
+            raise ValueError(
+                f"Invalid verification_status '{value}'. Must be one of {sorted(list(ALLOWED_VERIFICATION_STATUSES))}"
+            )
+        return value
+
+    @validates("value")
+    def validate_value(self, key: str, value: Optional[float]) -> Optional[float]:
+        if value is not None and value < 0:
+            raise ValueError("Nutrient value cannot be negative.")
+        return value
+
+
+class VerificationRecord(Base):
+    __tablename__ = "verification_records"
+    __table_args__ = (
+        Index("ix_verification_records_food_nutrient", "food_nutrient_id"),
+        Index("ix_verification_records_reviewer", "reviewer_id"),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    food_nutrient_id: Mapped[str] = mapped_column(ForeignKey("food_nutrients.id", ondelete="CASCADE"))
+    reviewer_id: Mapped[Optional[str]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    reviewer_name: Mapped[str] = mapped_column(String(120))
+    status: Mapped[str] = mapped_column(String(40))
+    evidence: Mapped[str] = mapped_column(Text)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    previous_status: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
+    reviewed_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    food_nutrient: Mapped[FoodNutrient] = relationship("FoodNutrient", back_populates="verification_records")
+    reviewer: Mapped[Optional[User]] = relationship("User", back_populates="verification_reviews")
+
+    @validates("status")
+    def validate_status(self, key: str, value: str) -> str:
+        if value not in ALLOWED_VERIFICATION_STATUSES:
+            raise ValueError(
+                f"Invalid status '{value}'. Must be one of {sorted(list(ALLOWED_VERIFICATION_STATUSES))}"
+            )
+        return value
+
+
+class CalinPackItem(Base):
+    __tablename__ = "calin_pack_items"
+    __table_args__ = (
+        Index("ix_calin_pack_items_tier_food", "pack_tier_id", "food_id", unique=True),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    pack_tier_id: Mapped[str] = mapped_column(ForeignKey("calin_pack_tiers.id", ondelete="CASCADE"), index=True)
+    food_id: Mapped[str] = mapped_column(ForeignKey("foods.id", ondelete="CASCADE"), index=True)
+    quantity: Mapped[float] = mapped_column(Float, default=1.0)
+    unit: Mapped[str] = mapped_column(String(40), default="unit")
+    role_in_pack: Mapped[Optional[str]] = mapped_column(String(60), nullable=True)
+    is_essential: Mapped[bool] = mapped_column(Boolean, default=True)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    pack_tier: Mapped[CalinPackTier] = relationship("CalinPackTier", back_populates="items_rel")
+    food: Mapped[Food] = relationship("Food", back_populates="calin_pack_items")
 
 
 class CartItem(Base):
@@ -403,6 +590,34 @@ class RefreshToken(Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime, index=True)
     revoked: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class DailyFoodLog(Base):
+    __tablename__ = "daily_food_logs"
+    __table_args__ = (
+        Index("ix_daily_food_logs_user_date", "user_id", "date"),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    date: Mapped[str] = mapped_column(String(10), index=True)
+    food_id: Mapped[Optional[str]] = mapped_column(ForeignKey("foods.id", ondelete="SET NULL"), nullable=True, index=True)
+    food_name: Mapped[str] = mapped_column(String(255))
+    meal_type: Mapped[str] = mapped_column(String(50), default="lunch")
+    quantity: Mapped[float] = mapped_column(Float, default=100.0)
+    unit: Mapped[str] = mapped_column(String(30), default="g")
+    mass_g: Mapped[float] = mapped_column(Float, default=100.0)
+    calories: Mapped[float] = mapped_column(Float, default=0.0)
+    protein_g: Mapped[float] = mapped_column(Float, default=0.0)
+    carbs_g: Mapped[float] = mapped_column(Float, default=0.0)
+    fat_g: Mapped[float] = mapped_column(Float, default=0.0)
+    fibre_g: Mapped[float] = mapped_column(Float, default=0.0)
+    nutrients_json: Mapped[str] = mapped_column(Text, default="{}")
+    source_basis: Mapped[str] = mapped_column(String(100), default="catalog")
+    data_completeness: Mapped[str] = mapped_column(String(50), default="verified")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    user: Mapped[User] = relationship("User", back_populates="daily_food_logs")
+    food: Mapped[Optional[Food]] = relationship("Food")
 
 
 def run_migrations() -> None:
@@ -635,6 +850,29 @@ def current_user(
     return user
 
 
+def optional_user(
+    request: Request,
+    authorization: Optional[str] = Header(default=None),
+    session: Session = Depends(db),
+) -> Optional[User]:
+    token: Optional[str] = None
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization[7:].strip()
+    elif request.cookies.get("nutriverse_access"):
+        token = request.cookies.get("nutriverse_access")
+
+    if not token:
+        return None
+    try:
+        payload = jwt.decode(token, get_jwt_secret(), algorithms=[ALGORITHM])
+        user_id = payload.get("sub")
+        if not user_id:
+            return None
+        return session.get(User, user_id)
+    except JWTError:
+        return None
+
+
 def require_role(roles: List[str]):
     def checker(user: User = Depends(current_user)) -> User:
         if user.role not in roles:
@@ -685,8 +923,57 @@ class ProfilePayload(BaseModel):
     activity_level: float = Field(ge=1.2, le=1.9)
     food_preferences: Optional[str] = "All foods"
     allergies: Optional[str] = "None"
-    budget_paise: Optional[int] = 150000
     goal: Optional[str] = "Balanced Nourishment"
+    budget_paise: Optional[int] = 150000
+
+
+class NutritionTargetCalculatePayload(BaseModel):
+    age: int
+    sex: str
+    height: float
+    height_unit: str = "cm"
+    weight: float
+    weight_unit: str = "kg"
+    activity_level: Union[str, float]
+    goal: Optional[str] = "maintain"
+    method: Optional[str] = "mifflin_st_jeor"
+    optional_allergies: Optional[str] = None
+    optional_preferences: Optional[str] = None
+
+
+class NutritionTargetProfileSavePayload(BaseModel):
+    age: int
+    sex: str
+    height: float
+    height_unit: str = "cm"
+    weight: float
+    weight_unit: str = "kg"
+    activity_level: Union[str, float]
+    goal: Optional[str] = "maintain"
+    method: Optional[str] = "mifflin_st_jeor"
+    food_preferences: Optional[str] = "All foods"
+    allergies: Optional[str] = "None"
+    budget_paise: Optional[int] = 150000
+    consent_given: bool = Field(..., description="Explicit user consent to store and process personal biometric and nutritional profile")
+
+
+class RecommendationCalculatePayload(BaseModel):
+    target_nutrient: str = Field(default="protein", description="Target nutrient: protein, dietary_fiber, energy, fat, carbohydrates")
+    age: int
+    sex: str
+    height: float
+    height_unit: str = "cm"
+    weight: float
+    weight_unit: str = "kg"
+    activity_level: Union[str, float]
+    goal: Optional[str] = "maintain"
+    method: Optional[str] = "mifflin_st_jeor"
+    optional_allergies: Optional[str] = None
+    optional_preferences: Optional[str] = None
+    limit: Optional[int] = Field(default=5, ge=1, le=50)
+    portion_override_g: Optional[float] = Field(default=None, gt=0, le=2000.0)
+    strict_verified: Optional[bool] = True
+    food_state: Optional[str] = "raw"
 
 
 class AddressPayload(BaseModel):
@@ -793,7 +1080,19 @@ class CalinPackTierOut(BaseModel):
 
 
 class CombinationRequest(BaseModel):
-    items: List[Dict[str, Any]]  # list of {food_id: str, quantity: float}
+    items: List[Dict[str, Any]]  # list of {food_id: str, quantity: float, unit?: str, food_state?: str}
+    mode: Optional[str] = "standard"
+
+
+class NutritionCalculateRequest(BaseModel):
+    items: List[Dict[str, Any]]
+    mode: Optional[str] = "standard"
+
+
+class RecipeCalculateRequest(BaseModel):
+    recipe_id: str
+    servings: Optional[int] = None
+    mode: Optional[str] = "standard"
 
 
 class CustomizePackPayload(BaseModel):
@@ -831,6 +1130,46 @@ class NutritionistReviewSubmit(BaseModel):
 
 class OrderStatusUpdate(BaseModel):
     status: str = Field(pattern="^(placed|confirmed|preparing|out_for_delivery|delivered|cancelled|placed_demo|preparing_demo|completed_demo|cancelled_demo)$")
+
+
+class DailyFoodLogCreatePayload(BaseModel):
+    food_id: Optional[str] = None
+    food_name: Optional[str] = None
+    meal_type: str = Field(default="lunch", pattern="^(breakfast|lunch|dinner|snack)$")
+    quantity: float = Field(default=100.0, gt=0, le=5000)
+    unit: str = Field(default="g", min_length=1, max_length=20)
+    food_state: str = Field(default="raw", min_length=1, max_length=50)
+    date: Optional[str] = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+
+
+class DailyFoodLogOut(BaseModel):
+    id: str
+    date: str
+    food_id: Optional[str] = None
+    food_name: str
+    meal_type: str
+    quantity: float
+    unit: str
+    mass_g: float
+    calories: float
+    protein_g: float
+    carbs_g: float
+    fat_g: float
+    fibre_g: float
+    nutrients_json: str
+    source_basis: str
+    data_completeness: str
+    created_at: datetime
+
+
+class DailyNutritionSummaryOut(BaseModel):
+    date: str
+    items: List[DailyFoodLogOut]
+    consumed_totals: Dict[str, float]
+    target_totals: Optional[Dict[str, float]] = None
+    remaining: Optional[Dict[str, float]] = None
+    progress_percentage: Optional[Dict[str, float]] = None
+    data_completeness_notes: List[str]
 
 
 from contextlib import asynccontextmanager
@@ -1927,7 +2266,7 @@ def save_profile(
             bmr=round(bmr),
             food_preferences=payload.food_preferences or "All foods",
             allergies=payload.allergies or "None",
-            budget_paise=payload.budget_paise or 150000,
+            budget_paise=getattr(payload, "budget_paise", None) or 150000,
             goal=payload.goal or "Balanced Nourishment",
             calculation_version="mifflin-st-jeor-v1",
         )
@@ -1942,7 +2281,7 @@ def save_profile(
         profile.calorie_target = daily_calories
         profile.food_preferences = payload.food_preferences or profile.food_preferences
         profile.allergies = payload.allergies or profile.allergies
-        profile.budget_paise = payload.budget_paise or profile.budget_paise
+        profile.budget_paise = getattr(payload, "budget_paise", None) or profile.budget_paise
         profile.goal = payload.goal or profile.goal
         profile.updated_at = datetime.now(timezone.utc)
 
@@ -2014,6 +2353,515 @@ def revoke_profile_consent(
     }
 
 
+# Phase 5: Deterministic Personalized Nutrition Target Estimation API
+@app.post("/api/nutrition-targets/calculate")
+def calculate_nutrition_targets_endpoint(
+    payload: NutritionTargetCalculatePayload,
+    user: User = Depends(current_user),
+) -> dict[str, Any]:
+    """Calculates personalized nutrition targets deterministically on-the-fly.
+
+    Does not persist data to the database unless explicit save is invoked.
+    """
+    try:
+        from backend.app.nutrition_targets import (
+            calculate_nutrition_targets,
+            TargetEstimationValidationError,
+            TargetIneligiblePopulationError,
+        )
+    except ImportError:
+        from app.nutrition_targets import (
+            calculate_nutrition_targets,
+            TargetEstimationValidationError,
+            TargetIneligiblePopulationError,
+        )
+
+    try:
+        result = calculate_nutrition_targets(
+            age=payload.age,
+            sex=payload.sex,
+            height=payload.height,
+            height_unit=payload.height_unit,
+            weight=payload.weight,
+            weight_unit=payload.weight_unit,
+            activity_level=payload.activity_level,
+            goal=payload.goal,
+            method=payload.method or "mifflin_st_jeor",
+            optional_allergies=payload.optional_allergies,
+            optional_preferences=payload.optional_preferences,
+        )
+        return result
+    except TargetIneligiblePopulationError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    except TargetEstimationValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Target estimation validation error: {exc}")
+
+
+@app.get("/api/nutrition-targets/me")
+def get_user_nutrition_targets(
+    user: User = Depends(current_user),
+    session: Session = Depends(db),
+) -> dict[str, Any]:
+    """Retrieves authenticated user's saved inputs and calculates the latest deterministic targets."""
+    profile = session.scalar(select(NutritionProfile).where(NutritionProfile.user_id == user.id))
+    if not profile or profile.consent_revoked_at is not None:
+        raise HTTPException(
+            status_code=404,
+            detail="No active personalized nutrition profile found. Please configure your profile inputs."
+        )
+
+    try:
+        from backend.app.nutrition_targets import calculate_nutrition_targets, resolve_method_identifier
+    except ImportError:
+        from app.nutrition_targets import calculate_nutrition_targets, resolve_method_identifier
+
+    is_version_unrecognized = False
+    try:
+        method_to_use = resolve_method_identifier(profile.calculation_version)
+    except Exception:
+        method_to_use = "mifflin_st_jeor"
+        is_version_unrecognized = True
+
+    estimate = calculate_nutrition_targets(
+        age=profile.age,
+        sex=profile.sex,
+        height=profile.height_cm,
+        height_unit="cm",
+        weight=profile.weight_kg,
+        weight_unit="kg",
+        activity_level=profile.activity_level,
+        goal=profile.goal,
+        method=method_to_use,
+        optional_allergies=profile.allergies,
+        optional_preferences=profile.food_preferences,
+    )
+
+    if is_version_unrecognized:
+        estimate["warnings"].insert(
+            0,
+            f"Notice: Stored profile references an unrecognized or retired calculation method ('{profile.calculation_version}'). "
+            "The displayed targets are an illustrative evaluation using the default Mifflin-St Jeor (1990) engine. "
+            "Please review your inputs and recalibrate to establish updated targets."
+        )
+
+    persisted_cal = profile.calorie_target
+    recalculated_cal = int(round(estimate["energy_targets"]["daily_energy_target_kcal"]))
+    is_version_match = (profile.calculation_version == estimate["method"]["identifier"])
+    is_stale = (persisted_cal != recalculated_cal) or not is_version_match or is_version_unrecognized
+
+    return {
+        "profile_id": profile.id,
+        "user_id": user.id,
+        "updated_at": profile.updated_at.isoformat() if profile.updated_at else None,
+        "consent_revoked_at": None,
+        "persisted_snapshot": {
+            "calorie_target": profile.calorie_target,
+            "bmr": profile.bmr,
+            "calculation_version": profile.calculation_version,
+            "saved_at": profile.updated_at.isoformat() if profile.updated_at else None,
+        },
+        "target_freshness": {
+            "is_stale": is_stale,
+            "persisted_calorie_target": persisted_cal,
+            "freshly_calculated_daily_energy_target_kcal": recalculated_cal,
+            "persisted_calculation_version": profile.calculation_version,
+            "active_engine_version": estimate["method"]["identifier"],
+            "version_matched": is_version_match and not is_version_unrecognized,
+            "retired_or_unrecognized_version": is_version_unrecognized,
+            "note": (
+                f"Persisted calculation method '{profile.calculation_version}' is retired or unrecognized. "
+                "Displaying default Mifflin-St Jeor (1990) estimate for review; please recalibrate and save your profile."
+                if is_version_unrecognized
+                else (
+                    "Persisted target matches current engine calculation."
+                    if not is_stale
+                    else "Persisted target differs from latest engine calculation (stale snapshot or formula version update). Recalibration recommended."
+                )
+            ),
+        },
+        "saved_inputs": {
+            "age": profile.age,
+            "sex": profile.sex,
+            "height_cm": profile.height_cm,
+            "weight_kg": profile.weight_kg,
+            "activity_level": profile.activity_level,
+            "goal": profile.goal,
+            "food_preferences": profile.food_preferences,
+            "allergies": profile.allergies,
+            "budget_paise": profile.budget_paise,
+            "calculation_version": profile.calculation_version,
+            "persisted_calorie_target": profile.calorie_target,
+            "persisted_bmr": profile.bmr,
+        },
+        "estimate": estimate,
+    }
+
+
+@app.put("/api/nutrition-targets/me")
+@app.post("/api/nutrition-targets/me")
+def save_user_nutrition_targets(
+    payload: NutritionTargetProfileSavePayload,
+    user: User = Depends(current_user),
+    session: Session = Depends(db),
+) -> dict[str, Any]:
+    """Persists or recalibrates authenticated user's explicit profile inputs with mandatory consent."""
+    if not payload.consent_given:
+        raise HTTPException(
+            status_code=422,
+            detail="Explicit user consent is required to process and persist personal biometric and nutritional data."
+        )
+
+    try:
+        from backend.app.nutrition_targets import (
+            calculate_nutrition_targets,
+            TargetEstimationValidationError,
+            TargetIneligiblePopulationError,
+        )
+    except ImportError:
+        from app.nutrition_targets import (
+            calculate_nutrition_targets,
+            TargetEstimationValidationError,
+            TargetIneligiblePopulationError,
+        )
+
+    try:
+        estimate = calculate_nutrition_targets(
+            age=payload.age,
+            sex=payload.sex,
+            height=payload.height,
+            height_unit=payload.height_unit,
+            weight=payload.weight,
+            weight_unit=payload.weight_unit,
+            activity_level=payload.activity_level,
+            goal=payload.goal,
+            method=payload.method or "mifflin_st_jeor",
+            optional_allergies=payload.allergies,
+            optional_preferences=payload.food_preferences,
+        )
+    except TargetIneligiblePopulationError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    except TargetEstimationValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Target estimation validation error: {exc}")
+
+    norm_height_cm = estimate["inputs"]["height"]["normalized_cm"]
+    norm_weight_kg = estimate["inputs"]["weight"]["normalized_kg"]
+    pal_multiplier = estimate["inputs"]["activity_level"]["pal_multiplier"]
+    cal_target = int(round(estimate["energy_targets"]["daily_energy_target_kcal"]))
+    bmr_int = int(round(estimate["energy_targets"]["bmr_kcal_day"]))
+    method_id = estimate["method"]["identifier"]
+
+    profile = session.scalar(select(NutritionProfile).where(NutritionProfile.user_id == user.id))
+    if profile is None:
+        profile = NutritionProfile(
+            id=str(uuid4()),
+            user_id=user.id,
+            age=estimate["inputs"]["age_years"],
+            sex=estimate["inputs"]["sex"],
+            height_cm=norm_height_cm,
+            weight_kg=norm_weight_kg,
+            activity_level=pal_multiplier,
+            calorie_target=cal_target,
+            bmr=bmr_int,
+            food_preferences=payload.food_preferences or "All foods",
+            allergies=payload.allergies or "None",
+            budget_paise=payload.budget_paise or 150000,
+            goal=estimate["inputs"]["goal"]["name"],
+            calculation_version=method_id,
+            consent_revoked_at=None,
+        )
+        session.add(profile)
+    else:
+        profile.age = estimate["inputs"]["age_years"]
+        profile.sex = estimate["inputs"]["sex"]
+        profile.height_cm = norm_height_cm
+        profile.weight_kg = norm_weight_kg
+        profile.activity_level = pal_multiplier
+        profile.calorie_target = cal_target
+        profile.bmr = bmr_int
+        profile.food_preferences = payload.food_preferences or profile.food_preferences
+        profile.allergies = payload.allergies or profile.allergies
+        profile.budget_paise = payload.budget_paise or profile.budget_paise
+        profile.goal = estimate["inputs"]["goal"]["name"]
+        profile.calculation_version = method_id
+        profile.consent_revoked_at = None
+        profile.updated_at = datetime.now(timezone.utc)
+
+    session.flush()
+
+    session.add(
+        AuditLog(
+            user_id=user.id,
+            action="nutrition_targets_saved",
+            entity_type="nutrition_profile",
+            entity_id=profile.id,
+            details=json.dumps({"method": method_id, "daily_energy_kcal": cal_target}),
+        )
+    )
+    session.commit()
+
+    return {
+        "message": "Personalized nutrition targets saved successfully.",
+        "profile_id": profile.id,
+        "user_id": user.id,
+        "updated_at": profile.updated_at.isoformat() if profile.updated_at else None,
+        "persisted_snapshot": {
+            "calorie_target": cal_target,
+            "bmr": bmr_int,
+            "calculation_version": method_id,
+            "saved_at": profile.updated_at.isoformat() if profile.updated_at else None,
+        },
+        "target_freshness": {
+            "is_stale": False,
+            "persisted_calorie_target": cal_target,
+            "freshly_calculated_daily_energy_target_kcal": cal_target,
+            "persisted_calculation_version": method_id,
+            "active_engine_version": method_id,
+            "version_matched": True,
+            "note": "Persisted target matches current engine calculation.",
+        },
+        "saved_inputs": {
+            "age": profile.age,
+            "sex": profile.sex,
+            "height_cm": profile.height_cm,
+            "weight_kg": profile.weight_kg,
+            "activity_level": profile.activity_level,
+            "goal": profile.goal,
+            "food_preferences": profile.food_preferences,
+            "allergies": profile.allergies,
+            "budget_paise": profile.budget_paise,
+            "calculation_version": profile.calculation_version,
+            "persisted_calorie_target": profile.calorie_target,
+            "persisted_bmr": profile.bmr,
+        },
+        "estimate": estimate,
+    }
+
+
+@app.delete("/api/nutrition-targets/me")
+def delete_user_nutrition_targets(
+    user: User = Depends(current_user),
+    session: Session = Depends(db),
+) -> dict[str, Any]:
+    """Deletes authenticated user's saved nutrition targets and associated biometric profile."""
+    profile = session.scalar(select(NutritionProfile).where(NutritionProfile.user_id == user.id))
+    if not profile:
+        return {
+            "message": "No active nutrition targets found to delete.",
+            "deleted": False,
+        }
+
+    profile_id = profile.id
+    session.delete(profile)
+    session.add(
+        AuditLog(
+            user_id=user.id,
+            action="nutrition_targets_deleted",
+            entity_type="nutrition_profile",
+            entity_id=profile_id,
+            details=json.dumps({"deleted_at": datetime.now(timezone.utc).isoformat()}),
+        )
+    )
+    session.commit()
+    return {
+        "message": "Personalized nutrition targets and biometric data deleted successfully.",
+        "deleted": True,
+    }
+
+
+# Phase 6.0: Personalized Nutrition Recommendations Engine API
+@app.get("/api/recommendations/me")
+def get_user_recommendations(
+    target_nutrient: str = Query("protein", description="Target nutrient: protein, dietary_fiber, energy, fat, carbohydrates"),
+    limit: int = Query(5, ge=1, le=50, description="Max recommendations to return (1-50)"),
+    portion_override_g: Optional[float] = Query(None, gt=0, le=2000.0, description="Optional portion mass override in grams"),
+    strict_verified: bool = Query(True, description="Strict mode requires 'verified_reference' data status"),
+    food_state: str = Query("raw", description="Food preparation state (raw vs cooked)"),
+    user: User = Depends(current_user),
+    session: Session = Depends(db),
+) -> dict[str, Any]:
+    """Generates personalized food recommendations based on authenticated user's verified targets.
+
+    Deterministic, traceable, read-only. Excludes foods with unknown nutrient values.
+    """
+    profile = session.scalar(select(NutritionProfile).where(NutritionProfile.user_id == user.id))
+    if not profile or profile.consent_revoked_at is not None:
+        raise HTTPException(
+            status_code=403,
+            detail="Personalized nutrition recommendations require an active profile and explicit biometric consent. Please configure your profile targets."
+        )
+
+    try:
+        from backend.app.nutrition_targets import calculate_nutrition_targets, resolve_method_identifier
+    except ImportError:
+        from app.nutrition_targets import calculate_nutrition_targets, resolve_method_identifier
+
+    is_version_unrecognized = False
+    try:
+        method_to_use = resolve_method_identifier(profile.calculation_version)
+    except Exception:
+        method_to_use = "mifflin_st_jeor"
+        is_version_unrecognized = True
+
+    try:
+        estimate = calculate_nutrition_targets(
+            age=profile.age,
+            sex=profile.sex,
+            height=profile.height_cm,
+            height_unit="cm",
+            weight=profile.weight_kg,
+            weight_unit="kg",
+            activity_level=profile.activity_level,
+            goal=profile.goal,
+            method=method_to_use,
+            optional_allergies=profile.allergies,
+            optional_preferences=profile.food_preferences,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Target calculation error: {exc}")
+
+    persisted_cal = profile.calorie_target
+    recalculated_cal = int(round(estimate["energy_targets"]["daily_energy_target_kcal"]))
+    is_version_match = (profile.calculation_version == estimate["method"]["identifier"])
+    is_stale = (persisted_cal != recalculated_cal) or not is_version_match or is_version_unrecognized
+
+    try:
+        from backend.app.services.recommendations import (
+            generate_recommendations,
+            UnsupportedTargetNutrientError,
+            TargetEligibilityError,
+            InvalidPortionError,
+        )
+    except ImportError:
+        from app.services.recommendations import (
+            generate_recommendations,
+            UnsupportedTargetNutrientError,
+            TargetEligibilityError,
+            InvalidPortionError,
+        )
+
+    try:
+        result = generate_recommendations(
+            session=session,
+            target_nutrient=target_nutrient,
+            target_estimate=estimate,
+            user_allergies=profile.allergies,
+            limit=limit,
+            portion_override_g=portion_override_g,
+            strict_verified=strict_verified,
+            food_state=food_state,
+            stale_target_warning=is_stale,
+            retired_version_warning=is_version_unrecognized,
+        )
+        result["user_id"] = user.id
+        result["profile_id"] = profile.id
+        result["target_freshness"] = {
+            "is_stale": is_stale,
+            "persisted_calorie_target": persisted_cal,
+            "freshly_calculated_daily_energy_target_kcal": recalculated_cal,
+            "persisted_calculation_version": profile.calculation_version,
+            "active_engine_version": estimate["method"]["identifier"],
+            "version_matched": is_version_match and not is_version_unrecognized,
+            "retired_or_unrecognized_version": is_version_unrecognized,
+        }
+        return result
+    except UnsupportedTargetNutrientError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except (TargetEligibilityError, InvalidPortionError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Recommendation error: {exc}")
+
+
+@app.post("/api/recommendations/calculate")
+def calculate_recommendations_endpoint(
+    payload: RecommendationCalculatePayload,
+    request: Request,
+    user: User = Depends(current_user),
+    session: Session = Depends(db),
+) -> dict[str, Any]:
+    """Calculates personalized food recommendations statelessly from explicit inputs.
+
+    Enforces authentication and CSRF. Does not persist profile or mutate inventory/cart.
+    """
+    verify_csrf(request)
+
+    try:
+        from backend.app.nutrition_targets import (
+            calculate_nutrition_targets,
+            TargetEstimationValidationError,
+            TargetIneligiblePopulationError,
+        )
+    except ImportError:
+        from app.nutrition_targets import (
+            calculate_nutrition_targets,
+            TargetEstimationValidationError,
+            TargetIneligiblePopulationError,
+        )
+
+    try:
+        estimate = calculate_nutrition_targets(
+            age=payload.age,
+            sex=payload.sex,
+            height=payload.height,
+            height_unit=payload.height_unit,
+            weight=payload.weight,
+            weight_unit=payload.weight_unit,
+            activity_level=payload.activity_level,
+            goal=payload.goal,
+            method=payload.method or "mifflin_st_jeor",
+            optional_allergies=payload.optional_allergies,
+            optional_preferences=payload.optional_preferences,
+        )
+    except TargetIneligiblePopulationError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    except TargetEstimationValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Target estimation error: {exc}")
+
+    try:
+        from backend.app.services.recommendations import (
+            generate_recommendations,
+            UnsupportedTargetNutrientError,
+            TargetEligibilityError,
+            InvalidPortionError,
+        )
+    except ImportError:
+        from app.services.recommendations import (
+            generate_recommendations,
+            UnsupportedTargetNutrientError,
+            TargetEligibilityError,
+            InvalidPortionError,
+        )
+
+    try:
+        result = generate_recommendations(
+            session=session,
+            target_nutrient=payload.target_nutrient,
+            target_estimate=estimate,
+            user_allergies=payload.optional_allergies,
+            limit=payload.limit or 5,
+            portion_override_g=payload.portion_override_g,
+            strict_verified=payload.strict_verified if payload.strict_verified is not None else True,
+            food_state=payload.food_state or "raw",
+            stale_target_warning=False,
+            retired_version_warning=False,
+        )
+        result["user_id"] = user.id
+        result["target_freshness"] = None
+        return result
+    except UnsupportedTargetNutrientError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except (TargetEligibilityError, InvalidPortionError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Recommendation error: {exc}")
+
+
 # Foods & Nutrition-First Catalog
 @app.get("/api/foods", response_model=List[FoodOut])
 def list_foods(
@@ -2080,6 +2928,77 @@ def get_food_by_barcode(barcode: str, session: Session = Depends(db)) -> Food:
     return food
 
 
+# Exact Barcode Lookup with Normalization, Provenance & Safe External Integration (Phase 4 & 4.1)
+@app.get("/api/barcode/lookup/{barcode}")
+def lookup_barcode_endpoint(
+    barcode: str,
+    refresh: bool = False,
+    session: Session = Depends(db),
+) -> dict[str, Any]:
+    try:
+        from backend.app.services.barcode_lookup import (
+            lookup_exact_barcode,
+            BarcodeValidationError,
+        )
+        from backend.app.services.openfoodfacts import (
+            OpenFoodFactsError,
+            OpenFoodFactsRateLimitError,
+            OpenFoodFactsTimeoutError,
+            OpenFoodFactsBarcodeMismatchError,
+        )
+    except ImportError:
+        from app.services.barcode_lookup import (
+            lookup_exact_barcode,
+            BarcodeValidationError,
+        )
+        from app.services.openfoodfacts import (
+            OpenFoodFactsError,
+            OpenFoodFactsRateLimitError,
+            OpenFoodFactsTimeoutError,
+            OpenFoodFactsBarcodeMismatchError,
+        )
+
+    try:
+        allow_synthetic = (
+            settings.allow_synthetic_barcodes
+            if settings.app_env != "production"
+            else False
+        )
+        result = lookup_exact_barcode(
+            barcode=barcode,
+            session=session,
+            force_refresh=refresh,
+            allow_synthetic=allow_synthetic,
+        )
+        if result is None:
+            clean_b = barcode.strip()
+            raise HTTPException(
+                status_code=404,
+                detail=f"No product found matching barcode '{clean_b}' in local catalog or Open Food Facts.",
+            )
+        return result
+    except BarcodeValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except OpenFoodFactsBarcodeMismatchError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    except OpenFoodFactsRateLimitError:
+        raise HTTPException(
+            status_code=429,
+            detail="Open Food Facts upstream rate limit exceeded. Please retry in a few moments.",
+        )
+    except OpenFoodFactsTimeoutError:
+        raise HTTPException(
+            status_code=504,
+            detail="Open Food Facts upstream service timed out.",
+        )
+    except OpenFoodFactsError:
+        raise HTTPException(
+            status_code=502,
+            detail="Open Food Facts upstream service is temporarily unavailable. Please retry later.",
+        )
+
+
+
 # Nutrition Categories Breakdown
 @app.get("/api/categories")
 def get_categories(session: Session = Depends(db)) -> dict[str, Any]:
@@ -2114,7 +3033,7 @@ def get_recipe(recipe_id: str, session: Session = Depends(db)) -> Recipe:
     return recipe
 
 
-# Food Combinations Calculator
+# Deterministic Nutrition Engine Endpoints
 @app.post("/api/combinations/calculate")
 def calculate_combination(
     payload: CombinationRequest,
@@ -2123,60 +3042,396 @@ def calculate_combination(
     if not payload.items:
         raise HTTPException(status_code=400, detail="Please provide at least one food item")
 
-    total_calories = 0.0
-    total_protein = 0.0
-    total_carbs = 0.0
-    total_fat = 0.0
-    total_fibre = 0.0
-    total_price = 0
-    contributing_foods = []
-    contributing_nutrients = set()
-
-    for item in payload.items:
-        food = session.get(Food, item.get("food_id"))
-        if not food:
-            continue
-        qty = float(item.get("quantity", 1))
-        # Nutritional proportion based on servings
-        total_calories += food.calories * qty
-        total_protein += food.protein_g * qty
-        total_carbs += food.carbs_g * qty
-        total_fat += food.fat_g * qty
-        total_fibre += food.fibre_g * qty
-
-        # Round once, half-up integer paise calculation for monetary value
-        # Using Decimal ROUND_HALF_UP to avoid floating-point representation anomalies
-        item_price_paise = int(
-            (Decimal(str(food.price_paise)) * Decimal(str(qty))).quantize(
-                Decimal("1"), rounding=ROUND_HALF_UP
-            )
+    try:
+        from backend.app.nutrition_engine import (
+            calculate_combination_nutrition,
+            NutritionCalculationError,
         )
-        total_price += item_price_paise
+    except ImportError:
+        from app.nutrition_engine import (
+            calculate_combination_nutrition,
+            NutritionCalculationError,
+        )
 
-        tags = json.loads(food.nutrition_tags or "[]")
-        for t in tags:
-            contributing_nutrients.add(t)
+    try:
+        return calculate_combination_nutrition(
+            items=payload.items,
+            session=session,
+            mode=payload.mode or "standard",
+        )
+    except NutritionCalculationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
-        contributing_foods.append({
-            "food_id": food.id,
-            "name": food.name,
-            "quantity": qty,
-            "calories": round(food.calories * qty, 1),
-            "protein_g": round(food.protein_g * qty, 1),
-            "price_paise": item_price_paise,
-        })
 
-    return {
-        "items": contributing_foods,
-        "total_calories": round(total_calories, 1),
-        "total_protein_g": round(total_protein, 1),
-        "total_carbs_g": round(total_carbs, 1),
-        "total_fat_g": round(total_fat, 1),
-        "total_fibre_g": round(total_fibre, 1),
-        "total_price_paise": total_price,
-        "contributing_nutrients": sorted(list(contributing_nutrients)),
-        "disclaimer": "Calculated from database whole-food nutritional reference sheets. Cooking and prep methods can influence final values.",
+@app.post("/api/nutrition/calculate")
+def calculate_nutrition(
+    payload: NutritionCalculateRequest,
+    session: Session = Depends(db),
+) -> dict[str, Any]:
+    if not payload.items:
+        raise HTTPException(status_code=400, detail="Please provide at least one food item")
+
+    try:
+        from backend.app.nutrition_engine import (
+            calculate_combination_nutrition,
+            NutritionCalculationError,
+        )
+    except ImportError:
+        from app.nutrition_engine import (
+            calculate_combination_nutrition,
+            NutritionCalculationError,
+        )
+
+    try:
+        return calculate_combination_nutrition(
+            items=payload.items,
+            session=session,
+            mode=payload.mode or "standard",
+        )
+    except NutritionCalculationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@app.post("/api/recipes/calculate")
+def calculate_recipe_endpoint(
+    payload: RecipeCalculateRequest,
+    session: Session = Depends(db),
+) -> dict[str, Any]:
+    try:
+        from backend.app.nutrition_engine import (
+            calculate_recipe_nutrition,
+            NutritionCalculationError,
+        )
+    except ImportError:
+        from app.nutrition_engine import (
+            calculate_recipe_nutrition,
+            NutritionCalculationError,
+        )
+
+    try:
+        return calculate_recipe_nutrition(
+            recipe_id=payload.recipe_id,
+            session=session,
+            servings=payload.servings,
+            mode=payload.mode or "standard",
+        )
+    except NutritionCalculationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@app.get("/api/recipes/{recipe_id}/nutrition")
+def get_recipe_nutrition(
+    recipe_id: str,
+    servings: Optional[int] = None,
+    mode: str = "standard",
+    session: Session = Depends(db),
+) -> dict[str, Any]:
+    try:
+        from backend.app.nutrition_engine import (
+            calculate_recipe_nutrition,
+            NutritionCalculationError,
+        )
+    except ImportError:
+        from app.nutrition_engine import (
+            calculate_recipe_nutrition,
+            NutritionCalculationError,
+        )
+
+    try:
+        return calculate_recipe_nutrition(
+            recipe_id=recipe_id,
+            session=session,
+            servings=servings,
+            mode=mode,
+        )
+    except NutritionCalculationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+# Daily Food Intake Logging & Nutrition Dashboard Tracking
+@app.get("/api/nutrition/daily-log", response_model=DailyNutritionSummaryOut)
+def get_daily_food_log(
+    date: str = Query(..., pattern=r"^\d{4}-\d{2}-\d{2}$"),
+    user: User = Depends(current_user),
+    session: Session = Depends(db),
+) -> DailyNutritionSummaryOut:
+    logs = session.scalars(
+        select(DailyFoodLog)
+        .where(DailyFoodLog.user_id == user.id, DailyFoodLog.date == date)
+        .order_by(DailyFoodLog.created_at.asc())
+    ).all()
+
+    consumed = {
+        "calories": 0.0,
+        "protein_g": 0.0,
+        "carbs_g": 0.0,
+        "fat_g": 0.0,
+        "fibre_g": 0.0,
     }
+    micronutrients_found: Dict[str, float] = {}
+    completeness_notes: List[str] = []
+
+    for item in logs:
+        consumed["calories"] += item.calories or 0.0
+        consumed["protein_g"] += item.protein_g or 0.0
+        consumed["carbs_g"] += item.carbs_g or 0.0
+        consumed["fat_g"] += item.fat_g or 0.0
+        consumed["fibre_g"] += item.fibre_g or 0.0
+
+        if item.data_completeness == "partial":
+            completeness_notes.append(f"{item.food_name}: Contains unverified or unknown micronutrient fields; not assumed zero.")
+
+        try:
+            nutrients_dict = json.loads(item.nutrients_json or "{}")
+            for k, v in nutrients_dict.items():
+                if isinstance(v, (int, float)) and v is not None:
+                    micronutrients_found[k] = micronutrients_found.get(k, 0.0) + float(v)
+        except Exception:
+            pass
+
+    consumed_totals = {k: round(v, 1) for k, v in consumed.items()}
+    consumed_totals["calories"] = round(consumed["calories"])
+
+    # Fetch user's calculated targets if active
+    target_totals: Optional[Dict[str, float]] = None
+    remaining: Optional[Dict[str, float]] = None
+    progress_percentage: Optional[Dict[str, float]] = None
+
+    profile = session.scalar(select(NutritionProfile).where(NutritionProfile.user_id == user.id))
+    if profile and profile.consent_revoked_at is None:
+        try:
+            from backend.app.nutrition_targets import calculate_nutrition_targets, resolve_method_identifier
+        except ImportError:
+            from app.nutrition_targets import calculate_nutrition_targets, resolve_method_identifier
+        try:
+            method_to_use = resolve_method_identifier(profile.calculation_version)
+        except Exception:
+            method_to_use = "mifflin_st_jeor"
+
+        try:
+            est = calculate_nutrition_targets(
+                age=profile.age,
+                sex=profile.sex,
+                height=profile.height_cm,
+                height_unit="cm",
+                weight=profile.weight_kg,
+                weight_unit="kg",
+                activity_level=profile.activity_level,
+                goal=profile.goal,
+                method=method_to_use,
+                optional_allergies=profile.allergies,
+                optional_preferences=profile.food_preferences,
+            )
+            cal_tgt = est["energy_targets"]["daily_energy_target_kcal"]
+            prot_tgt = est["macronutrient_targets"]["protein"]["target_g_day"]
+            fat_tgt = est["macronutrient_targets"]["fat"]["target_g_day"]
+            carb_tgt = est["macronutrient_targets"]["carbohydrates"]["target_g_day"]
+            fib_tgt = est["macronutrient_targets"]["dietary_fiber"]["target_g_day"]
+
+            target_totals = {
+                "calories": round(cal_tgt),
+                "protein_g": round(prot_tgt, 1),
+                "fat_g": round(fat_tgt, 1),
+                "carbs_g": round(carb_tgt, 1),
+                "fibre_g": round(fib_tgt, 1),
+            }
+
+            remaining = {
+                "calories": max(0.0, round(cal_tgt - consumed_totals["calories"])),
+                "protein_g": max(0.0, round(prot_tgt - consumed_totals["protein_g"], 1)),
+                "fat_g": max(0.0, round(fat_tgt - consumed_totals["fat_g"], 1)),
+                "carbs_g": max(0.0, round(carb_tgt - consumed_totals["carbs_g"], 1)),
+                "fibre_g": max(0.0, round(fib_tgt - consumed_totals["fibre_g"], 1)),
+            }
+
+            def pct(c: float, t: float) -> float:
+                return round(min(100.0, (c / t) * 100.0), 1) if t > 0 else 0.0
+
+            progress_percentage = {
+                "calories": pct(consumed_totals["calories"], cal_tgt),
+                "protein_g": pct(consumed_totals["protein_g"], prot_tgt),
+                "fat_g": pct(consumed_totals["fat_g"], fat_tgt),
+                "carbs_g": pct(consumed_totals["carbs_g"], carb_tgt),
+                "fibre_g": pct(consumed_totals["fibre_g"], fib_tgt),
+            }
+        except Exception:
+            pass
+
+    return DailyNutritionSummaryOut(
+        date=date,
+        items=[
+            DailyFoodLogOut(
+                id=item.id,
+                date=item.date,
+                food_id=item.food_id,
+                food_name=item.food_name,
+                meal_type=item.meal_type,
+                quantity=item.quantity,
+                unit=item.unit,
+                mass_g=item.mass_g,
+                calories=item.calories,
+                protein_g=item.protein_g,
+                carbs_g=item.carbs_g,
+                fat_g=item.fat_g,
+                fibre_g=item.fibre_g,
+                nutrients_json=item.nutrients_json,
+                source_basis=item.source_basis,
+                data_completeness=item.data_completeness,
+                created_at=item.created_at,
+            )
+            for item in logs
+        ],
+        consumed_totals=consumed_totals,
+        target_totals=target_totals,
+        remaining=remaining,
+        progress_percentage=progress_percentage,
+        data_completeness_notes=list(set(completeness_notes)),
+    )
+
+
+@app.post("/api/nutrition/daily-log", response_model=DailyFoodLogOut)
+def log_daily_food(
+    payload: DailyFoodLogCreatePayload,
+    user: User = Depends(current_user),
+    session: Session = Depends(db),
+) -> DailyFoodLogOut:
+    log_date = payload.date or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+    try:
+        from backend.app.nutrition_engine import (
+            convert_quantity_to_grams,
+            calculate_food_portion_nutrients,
+            IncompatibleUnitError,
+            CalculationMode,
+        )
+    except ImportError:
+        from app.nutrition_engine import (
+            convert_quantity_to_grams,
+            calculate_food_portion_nutrients,
+            IncompatibleUnitError,
+            CalculationMode,
+        )
+
+    food: Optional[Food] = None
+    if payload.food_id:
+        food = session.get(Food, payload.food_id)
+        if not food:
+            raise HTTPException(status_code=404, detail=f"Food '{payload.food_id}' not found.")
+    elif payload.food_name:
+        food = session.scalar(
+            select(Food).where(Food.name.ilike(payload.food_name.strip()), Food.active.is_(True))
+        )
+        if not food:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Food '{payload.food_name}' not found in catalog. Please select a verified catalog food."
+            )
+    else:
+        raise HTTPException(status_code=400, detail="Either food_id or food_name must be provided.")
+
+    try:
+        mass_g, assumptions = convert_quantity_to_grams(
+            quantity=payload.quantity,
+            unit=payload.unit,
+            food=food,
+        )
+    except IncompatibleUnitError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    portion_result = calculate_food_portion_nutrients(
+        food=food,
+        mass_g=mass_g,
+        session=session,
+        mode=CalculationMode.STANDARD,
+        food_state=payload.food_state,
+    )
+
+    nutrients = portion_result.get("nutrients", {})
+    calories = nutrients.get("energy_kcal", {}).get("amount") if nutrients.get("energy_kcal") else None
+    if calories is None:
+        calories = round(food.calories * (mass_g / 100.0), 1)
+
+    protein_g = nutrients.get("protein_g", {}).get("amount") if nutrients.get("protein_g") else None
+    if protein_g is None:
+        protein_g = round(food.protein_g * (mass_g / 100.0), 1)
+
+    carbs_g = nutrients.get("carbohydrates_g", {}).get("amount") if nutrients.get("carbohydrates_g") else None
+    if carbs_g is None:
+        carbs_g = round(food.carbs_g * (mass_g / 100.0), 1)
+
+    fat_g = nutrients.get("fat_total_g", {}).get("amount") if nutrients.get("fat_total_g") else None
+    if fat_g is None:
+        fat_g = round(food.fat_g * (mass_g / 100.0), 1)
+
+    fibre_g = nutrients.get("dietary_fiber_g", {}).get("amount") if nutrients.get("dietary_fiber_g") else None
+    if fibre_g is None:
+        fibre_g = round(food.fibre_g * (mass_g / 100.0), 1)
+
+    has_partial = any(n.get("is_unknown") for n in nutrients.values())
+
+    raw_nutrients = {}
+    for code, info in nutrients.items():
+        if info.get("amount") is not None:
+            raw_nutrients[code] = info["amount"]
+
+    daily_entry = DailyFoodLog(
+        user_id=user.id,
+        date=log_date,
+        food_id=food.id,
+        food_name=food.name,
+        meal_type=payload.meal_type,
+        quantity=payload.quantity,
+        unit=payload.unit,
+        mass_g=round(mass_g, 2),
+        calories=round(float(calories), 1),
+        protein_g=round(float(protein_g), 1),
+        carbs_g=round(float(carbs_g), 1),
+        fat_g=round(float(fat_g), 1),
+        fibre_g=round(float(fibre_g), 1),
+        nutrients_json=json.dumps(raw_nutrients),
+        source_basis="verified_ifct_reference" if any(fn.verification_status == "verified_reference" for fn in food.nutrients_rel) else "catalog",
+        data_completeness="partial" if has_partial else "verified",
+    )
+    session.add(daily_entry)
+    session.commit()
+    session.refresh(daily_entry)
+
+    return DailyFoodLogOut(
+        id=daily_entry.id,
+        date=daily_entry.date,
+        food_id=daily_entry.food_id,
+        food_name=daily_entry.food_name,
+        meal_type=daily_entry.meal_type,
+        quantity=daily_entry.quantity,
+        unit=daily_entry.unit,
+        mass_g=daily_entry.mass_g,
+        calories=daily_entry.calories,
+        protein_g=daily_entry.protein_g,
+        carbs_g=daily_entry.carbs_g,
+        fat_g=daily_entry.fat_g,
+        fibre_g=daily_entry.fibre_g,
+        nutrients_json=daily_entry.nutrients_json,
+        source_basis=daily_entry.source_basis,
+        data_completeness=daily_entry.data_completeness,
+        created_at=daily_entry.created_at,
+    )
+
+
+@app.delete("/api/nutrition/daily-log/{log_id}")
+def delete_daily_food_log(
+    log_id: str,
+    user: User = Depends(current_user),
+    session: Session = Depends(db),
+) -> dict[str, Any]:
+    entry = session.get(DailyFoodLog, log_id)
+    if not entry:
+        raise HTTPException(status_code=404, detail="Daily food log entry not found.")
+    if entry.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Forbidden: You cannot delete another user's food log.")
+
+    session.delete(entry)
+    session.commit()
+    return {"message": "Food log entry deleted successfully.", "deleted_id": log_id}
 
 
 # Calin Packs Core Module

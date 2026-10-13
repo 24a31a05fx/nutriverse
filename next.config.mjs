@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const isStaticExport = process.env.NEXT_EXPORT?.trim() === "true";
+const isVercel = process.env.VERCEL === "1";
 const backendTarget = process.env.BACKEND_INTERNAL_URL || "http://127.0.0.1:8000";
 
 const nextConfig = {
@@ -12,19 +13,24 @@ const nextConfig = {
     ? {}
     : {
         async rewrites() {
+          const localBackendRewrites = isVercel
+            ? []
+            : [
+                {
+                  source: "/api/:path*",
+                  destination: `${backendTarget}/api/:path*`,
+                },
+                {
+                  source: "/health",
+                  destination: `${backendTarget}/health`,
+                },
+                {
+                  source: "/ready",
+                  destination: `${backendTarget}/ready`,
+                },
+              ];
           return [
-            {
-              source: "/api/:path*",
-              destination: `${backendTarget}/api/:path*`,
-            },
-            {
-              source: "/health",
-              destination: `${backendTarget}/health`,
-            },
-            {
-              source: "/ready",
-              destination: `${backendTarget}/ready`,
-            },
+            ...localBackendRewrites,
             {
               source: "/store",
               destination: "/explore",
@@ -56,4 +62,3 @@ const nextConfig = {
 
 
 export default nextConfig;
-

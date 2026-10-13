@@ -4,8 +4,7 @@ import { AppShell } from "@/components/AppShell";
 import FoodDetailClient from "./FoodDetailClient";
 import { Food } from "@/lib/api";
 import { CATALOG_PRODUCTS, CatalogProduct } from "@/src/data/catalog";
-
-const BACKEND_INTERNAL_URL = process.env.BACKEND_INTERNAL_URL || "http://127.0.0.1:8000";
+import { getServerApiUrl } from "@/lib/server-api";
 
 function catalogProductToFood(p: CatalogProduct): Food {
   return {
@@ -38,9 +37,11 @@ export async function generateStaticParams() {
   return CATALOG_PRODUCTS.map((p) => ({ id: p.id }));
 }
 
+export const dynamic = "force-dynamic";
+
 async function getFood(id: string): Promise<Food | null> {
   try {
-    const res = await fetch(`${BACKEND_INTERNAL_URL}/api/foods/${id}`, {
+    const res = await fetch(getServerApiUrl(`api/foods/${encodeURIComponent(id)}`), {
       cache: "no-store",
     });
     if (res.ok) {

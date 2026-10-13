@@ -1,5 +1,26 @@
 # Nutriverse deployment
 
+## Vercel multi-service project
+
+The root [`vercel.json`](../vercel.json) configures two services in one Vercel
+project:
+
+- `app` is the public Next.js frontend.
+- `backend` is the FastAPI service. Top-level rewrites publish `/api/*`,
+  `/health`, and `/ready` through the same project domain; other paths go to
+  the frontend.
+- The `app` service binds `BACKEND_INTERNAL_URL` to the internal URL of
+  `backend`. Server-rendered food, recipe, and barcode detail pages use this
+  binding at runtime. Browser API calls use same-origin `/api`.
+
+Configure production environment variables for the relevant services in Vercel.
+At minimum, the backend needs a strong `JWT_SECRET`, a managed PostgreSQL
+`DATABASE_URL`, and `ALLOWED_ORIGINS` containing the public project origin.
+SQLite is suitable for local development only; serverless local files are not
+persistent production storage. Add any required AI or payment credentials only
+to the backend service. Do not manually define `BACKEND_INTERNAL_URL`; Vercel
+injects it from the service binding.
+
 ## Local production-shaped environment
 
 1. Copy `.env.example` to `.env` and replace `JWT_SECRET`.
